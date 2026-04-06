@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "version": "sample-v1"
+  },
+  "sales": [
+    {
+      "date": "2026-01-10",
+      "note": "NF-1001",
+      "client": "Cliente A",
+      "uf": "SP",
+      "item": "SKU A",
+      "quantity": 10,
+      "revenue": 12000,
+      "icms": 1200,
+      "pis": 180,
+      "cofins": 840,
+      "ipi": 0,
+      "cost": 7800,
+      "cfop": "5102",
+      "type": "venda"
+    },
+    {
+      "date": "2026-01-15",
+      "note": "NF-1002",
+      "client": "Cliente B",
+      "uf": "RJ",
+      "item": "SKU B",
+      "quantity": 8,
+      "revenue": 7600,
+      "icms": 760,
+      "pis": 114,
+      "cofins": 532,
+      "ipi": 0,
+      "cost": 6200,
+      "cfop": "5405",
+      "type": "venda"
+    },
+    {
+      "date": "2026-01-21",
+      "note": "NF-1003",
+      "client": "Cliente A",
+      "uf": "SP",
+      "item": "SKU A",
+      "quantity": -1,
+      "revenue": -1200,
+      "icms": -120,
+      "pis": -18,
+      "cofins": -84,
+      "ipi": 0,
+      "cost": -780,
+      "cfop": "5202",
+      "type": "devolucao"
+    }
+  ],
+  "stock": [
+    {
+      "date": "2026-01-18",
+      "note": "NF-REM-1",
+      "client": "Filial",
+      "uf": "SP",
+      "item": "SKU A",
+      "quantity": 2,
+      "value": 1500,
+      "cfop": "5905",
+      "type": "remessa"
+    },
+    {
+      "date": "2026-01-28",
+      "note": "NF-BAIXA-1",
+      "client": "Perda",
+      "uf": "SP",
+      "item": "SKU B",
+      "quantity": 1,
+      "value": 500,
+      "cfop": "5927",
+      "type": "baixa_estoque"
+    }
+  ]
+}

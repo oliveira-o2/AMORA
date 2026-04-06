@@ -1,0 +1,6 @@
+.DS_Store
+Thumbs.db
+.vscode/
+
+dashboard/apps-script/.clasp.json
+dashboard/apps-script/.clasprc.json

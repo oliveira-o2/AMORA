@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AMORA Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="loaderBar" class="loader-bar"></div>
+
+  <aside class="side-rail" role="navigation" aria-label="Navegação principal">
+    <div class="brand-lockup">
+      <div class="rail-logo" aria-hidden="true">AM</div>
+      <div class="rail-brand-copy">
+        <span class="rail-kicker">Finance Ops</span>
+        <strong>AMORA Dashboard</strong>
+      </div>
+    </div>
+
+    <nav class="rail-nav">
+      <button class="rail-nav-btn active" type="button" data-page="base" aria-label="Base de dados">
+        <span class="rail-nav-icon">
+          <svg viewBox="0 0 24 24"><path d="M5 7c0-1.7 3.1-3 7-3s7 1.3 7 3-3.1 3-7 3-7-1.3-7-3Z"/><path d="M5 7v10c0 1.7 3.1 3 7 3s7-1.3 7-3V7"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg>
+        </span>
+        <span class="rail-nav-copy">
+          <span class="rail-nav-title">Base</span>
+          <span class="rail-nav-text">Carga e validação</span>
+        </span>
+      </button>
+
+      <button class="rail-nav-btn" type="button" data-page="config" aria-label="Configurações">
+        <span class="rail-nav-icon">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M4.22 4.22l2.12 2.12m11.32 11.32 2.12 2.12M2 12h3m14 0h3M4.22 19.78l2.12-2.12m11.32-11.32 2.12-2.12"/></svg>
+        </span>
+        <span class="rail-nav-copy">
+          <span class="rail-nav-title">Configurações</span>
+          <span class="rail-nav-text">Regras e CFOP</span>
+        </span>
+      </button>
+
+      <button class="rail-nav-btn" type="button" data-page="versions" aria-label="Versões">
+        <span class="rail-nav-icon">
+          <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4z"/><path d="M13 4h7v7h-7z"/><path d="M4 13h7v7H4z"/><path d="M16.5 13.5v6"/><path d="M13.5 16.5h6"/></svg>
+        </span>
+        <span class="rail-nav-copy">
+          <span class="rail-nav-title">Versões</span>
+          <span class="rail-nav-text">Snapshots e histórico</span>
+        </span>
+      </button>
+
+      <button class="rail-nav-btn" type="button" data-page="analysis" aria-label="Análises">
+        <span class="rail-nav-icon">
+          <svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16V8"/><path d="M12 16V5"/><path d="M17 16v-4"/></svg>
+        </span>
+        <span class="rail-nav-copy">
+          <span class="rail-nav-title">Análises</span>
+          <span class="rail-nav-text">Indicadores e leitura</span>
+        </span>
+      </button>
+    </nav>
+
+    <div class="rail-foot">
+      <span class="rail-foot-label">Fluxo v1</span>
+      <strong>Upload -> Config -> Snapshot -> Análise</strong>
+    </div>
+  </aside>
+
+  <main class="app-layout">
+    <header class="hero-card panel">
+      <div class="hero-left">
+        <div class="hero-title-group">
+          <span id="pageEyebrow" class="eyebrow accent">Operação financeira</span>
+          <h1 id="pageTitle">Base e governança do dashboard</h1>
+          <p class="hero-subtitle">Fluxo auditável para carga, regras, snapshots versionados e análise gerencial.</p>
+        </div>
+      </div>
+      <div class="hero-right">
+        <label class="client-highlight">
+          <span>Empresa</span>
+          <input id="clientNameInput" type="text" value="AMORA DISTRIBUIDORA LTDA" aria-label="Nome da empresa">
+        </label>
+        <div class="hero-status-group">
+          <span id="clientNameBadge" class="client-pill">AMORA DISTRIBUIDORA LTDA</span>
+          <div id="statusBar" class="status-inline" aria-live="polite"></div>
+        </div>
+      </div>
+    </header>
+
+    <section id="pageBase" class="page-shell">
+      <section class="panel page-intro">
+        <div>
+          <span class="eyebrow">Base operacional</span>
+          <h2>Carregar, revisar e preparar uma nova versão</h2>
+          <p>O fluxo permanece configurável. Primeiro entra a base, depois você ajusta regras fiscais, revisa CFOPs e só então salva um snapshot oficial.</p>
+        </div>
+        <div class="page-intro-meta">
+          <span class="meta-chip">Upload manual</span>
+          <span class="meta-chip">Configuração obrigatória</span>
+          <span class="meta-chip">Histórico congelado por versão</span>
+        </div>
+      </section>
+
+      <section class="base-grid">
+        <article class="panel upload-card spotlight-card">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Entrada</span>
+              <h2>Carregar base de trabalho</h2>
+            </div>
+            <div class="section-meta">Aceita JSON com <strong>sales</strong> e <strong>stock</strong> ou Excel com aba <strong>Consolidado</strong>.</div>
+          </div>
+          <div class="upload-actions">
+            <button id="jsonTrigger" class="btn btn-secondary" type="button">Carregar JSON</button>
+            <button id="excelTrigger" class="btn btn-primary" type="button">Carregar Excel</button>
+            <input id="jsonInput" type="file" accept=".json" hidden>
+            <input id="excelInput" type="file" accept=".xlsx,.xls" hidden>
+          </div>
+          <div class="upload-note">
+            Use esta etapa para formar o dataset de trabalho. A versão oficial só nasce após configuração e gravação do snapshot.
+          </div>
+          <div class="workflow-list">
+            <div class="workflow-item">
+              <strong>1. Carga</strong>
+              <span>Suba a base bruta do período.</span>
+            </div>
+            <div class="workflow-item">
+              <strong>2. Regras</strong>
+              <span>Revise composição financeira e CFOPs.</span>
+            </div>
+            <div class="workflow-item">
+              <strong>3. Snapshot</strong>
+              <span>Congele a leitura e gere histórico auditável.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel stack-card">
+          <div class="section-head compact">
+            <div>
+              <span class="eyebrow">Conexão Google</span>
+              <h2>Integração do Apps Script</h2>
+            </div>
+          </div>
+          <label class="field-stack">
+            <span>URL do Web App</span>
+            <input id="apiBaseUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+          </label>
+          <div class="inline-actions">
+            <button id="saveApiBaseUrlBtn" class="btn btn-secondary" type="button">Salvar URL</button>
+            <button id="loadGlobalConfigBtn" class="btn btn-ghost" type="button">Buscar padrão global</button>
+          </div>
+          <p id="apiConfigStatus" class="support-copy">Sem URL configurada. O dashboard continua funcionando localmente, mas snapshots no Google ficam desabilitados.</p>
+        </article>
+
+        <article class="panel stack-card">
+          <div class="section-head compact">
+            <div>
+              <span class="eyebrow">Snapshot</span>
+              <h2>Salvar versão oficial</h2>
+            </div>
+          </div>
+          <p class="support-copy">O snapshot grava base normalizada, configuração aplicada e overrides de CFOP. Versões antigas sempre serão abertas com a regra congelada daquele salvamento.</p>
+          <div class="inline-actions">
+            <button id="saveSnapshotBtn" class="btn btn-primary" type="button">Salvar snapshot</button>
+            <button id="goToConfigBtn" class="btn btn-ghost" type="button">Revisar configurações</button>
+            <button id="goToAnalysisBtn" class="btn btn-ghost" type="button">Abrir análises</button>
+          </div>
+          <div id="workingVersionSummary" class="callout callout-neutral">Nenhum snapshot salvo nesta sessão.</div>
+        </article>
+      </section>
+
+      <section class="base-grid secondary">
+        <article class="panel source-panel">
+          <div class="section-head compact">
+            <div>
+              <span class="eyebrow">Base carregada</span>
+              <h2>Resumo da carga</h2>
+            </div>
+          </div>
+          <div id="sourceSummary" class="source-summary empty">Nenhuma base carregada.</div>
+        </article>
+
+        <article class="panel source-panel">
+          <div class="section-head compact">
+            <div>
+              <span class="eyebrow">Premissas ativas</span>
+              <h2>Regras do cálculo atual</h2>
+            </div>
+          </div>
+          <div class="assumption-box no-margin">
+            <ul id="assumptionsList"></ul>
+          </div>
+        </article>
+      </section>
+    </section>
+
+    <section id="pageConfig" class="page-shell hidden">
+      <section class="panel page-intro">
+        <div>
+          <span class="eyebrow">Motor de regras</span>
+          <h2>Configuração obrigatória antes da leitura oficial</h2>
+          <p>Esta área preserva o fluxo atual de decisão financeira. A configuração global serve de ponto de partida para novas cargas; o snapshot salva a fotografia exata usada em cada versão.</p>
+        </div>
+        <div class="inline-actions">
+          <button id="saveGlobalConfigBtn" class="btn btn-primary" type="button">Salvar padrão global</button>
+          <button id="resetGlobalConfigBtn" class="btn btn-ghost" type="button">Reaplicar padrão global</button>
+        </div>
+      </section>
+
+      <section class="settings-grid">
+        <article class="panel config-panel">
+          <div class="section-head compact">
+            <div><span class="eyebrow">Receita</span><h2>Composição da receita</h2></div>
+          </div>
+          <div class="config-group">
+            <label class="check-option">
+              <input id="configRevenueSales" type="checkbox" checked>
+              Incluir vendas positivas
+            </label>
+            <label class="check-option">
+              <input id="configRevenueReturns" type="checkbox" checked>
+              Abater devoluções da receita
+            </label>
+          </div>
+        </article>
+
+        <article class="panel config-panel">
+          <div class="section-head compact">
+            <div><span class="eyebrow">Tributos</span><h2>Composição tributária</h2></div>
+          </div>
+          <div class="config-group">
+            <label class="check-option"><input id="configTaxIcms" type="checkbox" checked> ICMS</label>
+            <label class="check-option"><input id="configTaxPis" type="checkbox" checked> PIS</label>
+            <label class="check-option"><input id="configTaxCofins" type="checkbox" checked> COFINS</label>
+            <label class="check-option"><input id="configTaxIpi" type="checkbox" checked> IPI</label>
+          </div>
+        </article>
+
+        <article class="panel config-panel">
+          <div class="section-head compact">
+            <div><span class="eyebrow">Margem</span><h2>Apuração da margem</h2></div>
+          </div>
+          <div class="config-group">
+            <label class="check-option">
+              <input id="configMarginDeductTaxes" type="checkbox">
+              Deduzir tributos selecionados da margem
+            </label>
+            <label class="check-option">
+              <input id="configMarginRequireCost" type="checkbox" checked>
+              Calcular margem somente com custo mapeado
+            </label>
+          </div>
+          <div id="marginExplain" class="config-explain"></div>
+        </article>
+
+        <article class="panel config-panel">
+          <div class="section-head compact">
+            <div><span class="eyebrow">Movimentações</span><h2>Leitura de estoque</h2></div>
+          </div>
+          <div class="config-group">
+            <label class="check-option">
+              <input id="configStockRemessa" type="checkbox" checked>
+              Considerar remessas e similares
+            </label>
+            <label class="check-option">
+              <input id="configStockBaixa" type="checkbox" checked>
+              Considerar baixas de estoque
+            </label>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel cfop-panel">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">CFOP</span>
+            <h2>Cadastro e reclassificação</h2>
+          </div>
+          <div class="section-meta">A regra continua manual e auditável. Cada versão salva congela o tratamento aplicado aos CFOPs.</div>
+        </div>
+        <div class="cfop-toolbar">
+          <input id="cfopSearch" type="text" placeholder="Buscar por código, descrição ou grupo de análise">
+          <button id="resetCfopConfig" class="btn btn-ghost" type="button">Restaurar padrão da carga</button>
+        </div>
+        <div class="cfop-meta">
+          <span id="cfopRegistryMeta" class="filter-info">A classificação oficial será aplicada automaticamente aos CFOPs detectados na base.</span>
+        </div>
+        <div class="table-wrap">
+          <table id="cfopConfigTable" class="data-table"></table>
+        </div>
+      </section>
+    </section>
+
+    <section id="pageVersions" class="page-shell hidden">
+      <section class="panel page-intro">
+        <div>
+          <span class="eyebrow">Histórico</span>
+          <h2>Snapshots congelados e reutilização de versões</h2>
+          <p>Abertura padrão sempre respeita a configuração congelada da versão. Para gerar uma revisão nova, carregue a versão e salve outro snapshot.</p>
+        </div>
+        <div class="inline-actions">
+          <button id="refreshVersionsBtn" class="btn btn-secondary" type="button">Atualizar histórico</button>
+          <button id="openBaseFromVersionsBtn" class="btn btn-ghost" type="button">Nova carga</button>
+        </div>
+      </section>
+
+      <section class="versions-layout">
+        <article class="panel wide-table-panel">
+          <div class="section-head compact">
+            <div>
+              <span class="eyebrow">Versões</span>
+              <h2>Índice de snapshots</h2>
+            </div>
+          </div>
+          <div id="versionsStatus" class="support-copy">Configure o Apps Script e atualize o histórico para listar as versões salvas.</div>
+          <div class="table-wrap">
+            <table id="versionsTable" class="data-table"></table>
+          </div>
+        </article>
+
+        <aside class="panel stack-card">
+          <div class="section-head compact">
+            <div>
+              <span class="eyebrow">Versão ativa</span>
+              <h2>Contexto do trabalho</h2>
+            </div>
+          </div>
+          <div id="versionDetailCard" class="callout callout-neutral">Nenhuma versão carregada nesta sessão.</div>
+          <div class="version-note">
+            <strong>Comportamento padrão</strong>
+            <p>Ao abrir uma versão, o dashboard restaura a base normalizada e a configuração congelada daquele snapshot. O padrão global não sobrescreve histórico já salvo.</p>
+          </div>
+        </aside>
+      </section>
+    </section>
+
+    <section id="pageAnalysis" class="page-shell hidden">
+      <section class="panel page-intro">
+        <div>
+          <span class="eyebrow">Leitura gerencial</span>
+          <h2>Indicadores, comparativos e drill-down operacional</h2>
+          <p>A visão analítica consome a base carregada ou uma versão restaurada, sempre respeitando o conjunto de regras atualmente aplicado à sessão.</p>
+        </div>
+        <div class="page-intro-meta">
+          <span class="meta-chip">Período A/B</span>
+          <span class="meta-chip">Leitura CFO</span>
+          <span class="meta-chip">Exportação CSV</span>
+        </div>
+      </section>
+
+      <section class="panel control-card" aria-label="Filtros de período">
+        <div class="section-head compact">
+          <div>
+            <span class="eyebrow">Período</span>
+            <h2>Filtros executivos</h2>
+          </div>
+          <div class="section-meta">Período principal e comparativo opcional. As variações são calculadas automaticamente sobre a base em trabalho.</div>
+        </div>
+
+        <div class="filter-grid">
+          <div class="filter-block">
+            <div class="filter-block-title">Período A</div>
+            <label>Data inicial <input id="dateFrom" type="date" disabled></label>
+            <label>Data final <input id="dateTo" type="date" disabled></label>
+          </div>
+
+          <div class="filter-block">
+            <div class="compare-toggle-row">
+              <div class="filter-block-title">Comparativo (B)</div>
+              <label class="toggle-switch">
+                <input id="compareToggle" type="checkbox" disabled>
+                <span>Habilitar</span>
+              </label>
+            </div>
+            <label>Data inicial B <input id="compareFrom" type="date" disabled></label>
+            <label>Data final B <input id="compareTo" type="date" disabled></label>
+          </div>
+
+          <div class="filter-block">
+            <div class="filter-block-title">Resumo ativo</div>
+            <div id="filterInfo" class="filter-info">Carregue uma base na área <strong>Base</strong> e conclua a configuração antes de analisar.</div>
+            <button id="resetFilters" class="btn btn-ghost" type="button" disabled>Resetar período</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="emptyState" class="panel empty-state">
+        <div class="empty-icon">01</div>
+        <span class="eyebrow">Próximo passo</span>
+        <h2>Nenhuma base pronta para análise</h2>
+        <p>Faça a carga na página <strong>Base</strong>, revise as configurações e ajuste o tratamento de CFOP antes de abrir a leitura analítica.</p>
+        <div class="inline-actions centered">
+          <button class="btn btn-primary" type="button" onclick="setActivePage('base')">Ir para Base</button>
+          <button class="btn btn-ghost" type="button" onclick="setActivePage('config')">Ir para Configurações</button>
+        </div>
+      </section>
+
+      <section id="dashboardContent" class="dashboard-content hidden">
+        <div class="kpi-section-header">
+          <span class="eyebrow accent">DRE sintético</span>
+          <h2>Receita -> deduções -> margem</h2>
+          <p class="kpi-section-sub">Waterfall gerencial do resultado, com foco em perdas, tributação e rentabilidade operacional.</p>
+        </div>
+        <section id="summaryGridDre" class="summary-grid summary-grid-dre" aria-label="DRE sintético"></section>
+
+        <section class="panel alerts-panel" id="alertsPanel" aria-label="Alertas automáticos"></section>
+
+        <div class="kpi-section-header">
+          <span class="eyebrow">KPIs operacionais</span>
+          <h2>Indicadores derivados</h2>
+          <p class="kpi-section-sub">Conversão, eficiência comercial, markup, concentração, remessas e baixas sob a regra vigente.</p>
+        </div>
+        <section id="summaryGridOps" class="summary-grid" aria-label="KPIs operacionais"></section>
+
+        <section class="panel full-chart-card">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Receita</span>
+              <h2>Evolução mensal</h2>
+            </div>
+            <div class="section-controls">
+              <button id="exportCsvBtn" class="btn btn-ghost export-btn" type="button">Exportar CSV</button>
+            </div>
+          </div>
+          <div class="chart-wrap full-width-chart">
+            <canvas id="monthlyChart"></canvas>
+          </div>
+        </section>
+
+        <section class="dashboard-grid two-thirds">
+          <article class="panel insight-card">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Leitura CFO</span>
+                <h2>Análise executiva automática</h2>
+              </div>
+            </div>
+            <div id="analysisList" class="analysis-list"></div>
+          </article>
+
+          <article class="panel">
+            <div class="section-head compact">
+              <div>
+                <span class="eyebrow">Tributos</span>
+                <h2>Carga tributária mensal</h2>
+              </div>
+            </div>
+            <div class="chart-wrap medium-chart">
+              <canvas id="taxChart"></canvas>
+            </div>
+            <div id="taxBreakdown" class="tax-breakdown"></div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Top clientes</span>
+                <h2>Ranking de clientes</h2>
+              </div>
+              <div class="section-controls">
+                <label>Top
+                  <select id="topClientsLimit">
+                    <option value="10">10</option>
+                    <option value="15" selected>15</option>
+                    <option value="20">20</option>
+                    <option value="30">30</option>
+                  </select>
+                </label>
+                <label>Ordenar por
+                  <select id="topClientsSort">
+                    <option value="revenue" selected>Receita</option>
+                    <option value="marginValue">Margem R$</option>
+                    <option value="marginPct">Margem %</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="clientsTable" class="data-table"></table>
+            </div>
+          </article>
+
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Top SKUs</span>
+                <h2>Ranking de produtos</h2>
+              </div>
+              <div class="section-controls">
+                <label>Top
+                  <select id="topProductsLimit">
+                    <option value="10">10</option>
+                    <option value="15" selected>15</option>
+                    <option value="20">20</option>
+                    <option value="30">30</option>
+                  </select>
+                </label>
+                <label>Ordenar por
+                  <select id="topProductsSort">
+                    <option value="revenue" selected>Receita</option>
+                    <option value="marginValue">Margem R$</option>
+                    <option value="marginPct">Margem %</option>
+                    <option value="quantity">Volume</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="productsTable" class="data-table"></table>
+            </div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Margem positiva</span>
+                <h2>Top SKUs com maior rentabilidade</h2>
+              </div>
+              <div class="section-controls">
+                <label>Top
+                  <select id="topPositiveSkuLimit">
+                    <option value="10">10</option>
+                    <option value="15" selected>15</option>
+                    <option value="20">20</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="positiveSkuTable" class="data-table"></table>
+            </div>
+          </article>
+
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Margem negativa</span>
+                <h2>SKUs destruindo valor</h2>
+              </div>
+              <div class="section-controls">
+                <label>Top
+                  <select id="topNegativeSkuLimit">
+                    <option value="10">10</option>
+                    <option value="15" selected>15</option>
+                    <option value="20">20</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="negativeMarginTable" class="data-table"></table>
+            </div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Clientes críticos</span>
+                <h2>Clientes com margem negativa</h2>
+              </div>
+              <div class="section-controls">
+                <label>Top
+                  <select id="topBadClientsLimit">
+                    <option value="10">10</option>
+                    <option value="15" selected>15</option>
+                    <option value="20">20</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="badClientsTable" class="data-table"></table>
+            </div>
+          </article>
+
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Tributação</span>
+                <h2>SKUs com imposto atípico</h2>
+              </div>
+              <div class="section-controls">
+                <label>Top
+                  <select id="topTaxLimit">
+                    <option value="10">10</option>
+                    <option value="15" selected>15</option>
+                    <option value="20">20</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table id="taxOutlierTable" class="data-table"></table>
+            </div>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Remessas</span>
+                <h2>Movimentações de remessa, bonificação e similares</h2>
+              </div>
+            </div>
+            <div class="chart-wrap short-chart">
+              <canvas id="remessaChart"></canvas>
+            </div>
+            <div class="table-wrap">
+              <table id="remessaTable" class="data-table"></table>
+            </div>
+          </article>
+
+          <article class="panel wide-table-panel">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Baixas de estoque</span>
+                <h2>Perdas, deterioração e roubo por CFOP</h2>
+              </div>
+            </div>
+            <div class="chart-wrap short-chart">
+              <canvas id="baixaChart"></canvas>
+            </div>
+            <div class="table-wrap">
+              <table id="baixaTable" class="data-table"></table>
+            </div>
+          </article>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card panel">
+      <div class="modal-head">
+        <div>
+          <h3 id="modalTitle">Detalhamento</h3>
+          <p id="modalSubtitle"></p>
+        </div>
+        <button id="closeModal" class="icon-btn" type="button" aria-label="Fechar">×</button>
+      </div>
+      <div id="modalKpis" class="modal-kpis"></div>
+      <input id="modalSearch" class="modal-search" type="text" placeholder="Filtrar por NF, cliente, UF, produto ou CFOP...">
+      <div id="modalCount" class="modal-count"></div>
+      <div class="table-wrap modal-table-wrap">
+        <table id="modalTable" class="data-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

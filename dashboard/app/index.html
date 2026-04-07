@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AMORA Dashboard</title>
+  <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -58,7 +59,7 @@
         </span>
         <span class="rail-nav-copy">
           <span class="rail-nav-title">Análises</span>
-          <span class="rail-nav-text">Indicadores e leitura</span>
+          <span class="rail-nav-text">Dashboard gerencial</span>
         </span>
       </button>
     </nav>
@@ -75,14 +76,13 @@
         <div class="hero-title-group">
           <span id="pageEyebrow" class="eyebrow accent">Operação financeira</span>
           <h1 id="pageTitle">Base e governança do dashboard</h1>
-          <p class="hero-subtitle">Fluxo auditável para carga, regras, snapshots versionados e análise gerencial.</p>
+          <p id="pageSubtitle" class="hero-subtitle">Fluxo auditável para carga, regras, snapshots versionados e análise gerencial.</p>
         </div>
       </div>
       <div class="hero-right">
-        <label class="client-highlight">
+        <div class="client-highlight client-highlight-readonly">
           <span>Empresa</span>
-          <input id="clientNameInput" type="text" value="AMORA DISTRIBUIDORA LTDA" aria-label="Nome da empresa">
-        </label>
+        </div>
         <div class="hero-status-group">
           <span id="clientNameBadge" class="client-pill">AMORA DISTRIBUIDORA LTDA</span>
           <div id="statusBar" class="status-inline" aria-live="polite"></div>
@@ -96,6 +96,10 @@
           <span class="eyebrow">Base operacional</span>
           <h2>Carregar, revisar e preparar uma nova versão</h2>
           <p>O fluxo permanece configurável. Primeiro entra a base, depois você ajusta regras fiscais, revisa CFOPs e só então salva um snapshot oficial.</p>
+          <label class="field-stack base-company-field">
+            <span>Empresa</span>
+            <input id="baseClientNameInput" type="text" value="AMORA DISTRIBUIDORA LTDA" aria-label="Nome da empresa na aba Base">
+          </label>
         </div>
         <div class="page-intro-meta">
           <span class="meta-chip">Upload manual</span>
@@ -136,24 +140,101 @@
               <span>Congele a leitura e gere histórico auditável.</span>
             </div>
           </div>
+
+          <div class="consolidator-block">
+            <div class="section-head compact consolidator-head">
+              <div>
+                <span class="eyebrow">Consolidador local</span>
+                <h2>Executar o amora_consolidador.py dentro do fluxo</h2>
+              </div>
+              <div class="inline-actions">
+                <button id="consolidatorHealthBtn" class="btn btn-ghost" type="button">Testar servidor</button>
+                <button id="runConsolidatorBtn" class="btn btn-primary" type="button">Processar e carregar</button>
+              </div>
+            </div>
+
+            <p class="support-copy">Use este botão para processar os relatórios pelo Python local e já carregar o JSON compatível no dashboard, sem sair da aplicação.</p>
+
+            <div class="consolidator-grid">
+              <label class="field-stack">
+                <span>URL do servidor local</span>
+                <div class="consolidator-inline-input">
+                  <input id="consolidatorApiBaseUrlInput" type="url" placeholder="http://127.0.0.1:8765">
+                  <button id="saveConsolidatorApiBaseUrlBtn" class="btn btn-secondary" type="button">Salvar URL</button>
+                </div>
+              </label>
+
+              <label class="field-stack">
+                <span>Nome do arquivo de saída</span>
+                <input id="consolidatorOutputNameInput" type="text" placeholder="Consolidado_Amora_20260406_153000.xlsx">
+              </label>
+            </div>
+
+            <div class="consolidator-files">
+              <article class="consolidator-file-card required">
+                <div class="consolidator-file-copy">
+                  <strong>Relatórios NFe</strong>
+                  <span>Obrigatório. Selecione um ou mais arquivos de itens por NFe.</span>
+                </div>
+                <div class="inline-actions">
+                  <button id="consolidatorNfeTrigger" class="btn btn-secondary" type="button">Selecionar NFe</button>
+                </div>
+                <input id="consolidatorNfeInput" type="file" accept=".xlsx,.xls" multiple hidden>
+                <div id="consolidatorNfeSummary" class="file-summary empty">Nenhum arquivo selecionado.</div>
+              </article>
+
+              <article class="consolidator-file-card">
+                <div class="consolidator-file-copy">
+                  <strong>Vendas por Item</strong>
+                  <span>Opcional. Usado para cálculo de custo médio.</span>
+                </div>
+                <div class="inline-actions">
+                  <button id="consolidatorVendasItemTrigger" class="btn btn-secondary" type="button">Selecionar arquivo</button>
+                </div>
+                <input id="consolidatorVendasItemInput" type="file" accept=".xlsx,.xls" hidden>
+                <div id="consolidatorVendasItemSummary" class="file-summary empty">Nenhum arquivo selecionado.</div>
+              </article>
+
+              <article class="consolidator-file-card">
+                <div class="consolidator-file-copy">
+                  <strong>Lista de Vendas</strong>
+                  <span>Opcional. Usado para cruzar CST total por NF.</span>
+                </div>
+                <div class="inline-actions">
+                  <button id="consolidatorListaVendasTrigger" class="btn btn-secondary" type="button">Selecionar arquivo</button>
+                </div>
+                <input id="consolidatorListaVendasInput" type="file" accept=".xlsx,.xls" hidden>
+                <div id="consolidatorListaVendasSummary" class="file-summary empty">Nenhum arquivo selecionado.</div>
+              </article>
+            </div>
+
+            <div class="inline-actions">
+              <button id="clearConsolidatorFilesBtn" class="btn btn-ghost" type="button">Limpar seleção</button>
+            </div>
+
+            <div id="consolidatorStatus" class="callout callout-neutral">Inicie o servidor local em <strong>dashboard/python/start_consolidador_server.bat</strong> e depois clique em <strong>Processar e carregar</strong>.</div>
+          </div>
         </article>
 
         <article class="panel stack-card">
           <div class="section-head compact">
             <div>
               <span class="eyebrow">Conexão Google</span>
-              <h2>Integração do Apps Script</h2>
+              <h2>Integração Google</h2>
             </div>
           </div>
           <label class="field-stack">
-            <span>URL do Web App</span>
-            <input id="apiBaseUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+            <span>URL da API Google</span>
+            <input id="apiBaseUrlInput" type="url" placeholder="http://127.0.0.1:8765/api/google">
           </label>
           <div class="inline-actions">
             <button id="saveApiBaseUrlBtn" class="btn btn-secondary" type="button">Salvar URL</button>
+            <button id="testApiBaseUrlBtn" class="btn btn-ghost" type="button">Testar API</button>
+            <button id="setupApiWorkspaceBtn" class="btn btn-ghost" type="button">Inicializar estrutura</button>
             <button id="loadGlobalConfigBtn" class="btn btn-ghost" type="button">Buscar padrão global</button>
           </div>
           <p id="apiConfigStatus" class="support-copy">Sem URL configurada. O dashboard continua funcionando localmente, mas snapshots no Google ficam desabilitados.</p>
+          <div id="apiWorkspaceStatus" class="callout callout-neutral">A API de salvamento fica em <strong>dashboard/python</strong>. Mantenha o servidor local ativo e use o botão <strong>Testar API</strong> para validar a conexão.</div>
         </article>
 
         <article class="panel stack-card">
@@ -316,7 +397,7 @@
               <h2>Índice de snapshots</h2>
             </div>
           </div>
-          <div id="versionsStatus" class="support-copy">Configure o Apps Script e atualize o histórico para listar as versões salvas.</div>
+          <div id="versionsStatus" class="support-copy">Configure a API Google e atualize o histórico para listar as versões salvas.</div>
           <div class="table-wrap">
             <table id="versionsTable" class="data-table"></table>
           </div>
@@ -338,15 +419,13 @@
       </section>
     </section>
 
-    <section id="pageAnalysis" class="page-shell hidden">
-      <section class="panel page-intro">
-        <div>
-          <span class="eyebrow">Leitura gerencial</span>
-          <h2>Indicadores, comparativos e drill-down operacional</h2>
-          <p>A visão analítica consome a base carregada ou uma versão restaurada, sempre respeitando o conjunto de regras atualmente aplicado à sessão.</p>
+    <section id="pageAnalysis" class="page-shell page-analysis hidden">
+      <section class="panel page-intro analysis-intro">
+        <div class="analysis-intro-copy">
+          <p>Painel executivo da base ativa, com receita, custo, margens, tributos e rankings críticos sempre sob a regra vigente da sessão.</p>
         </div>
         <div class="page-intro-meta">
-          <span class="meta-chip">Período A/B</span>
+          <span class="meta-chip">Receita x custo</span>
           <span class="meta-chip">Leitura CFO</span>
           <span class="meta-chip">Exportação CSV</span>
         </div>
@@ -400,242 +479,270 @@
       </section>
 
       <section id="dashboardContent" class="dashboard-content hidden">
-        <div class="kpi-section-header">
-          <span class="eyebrow accent">DRE sintético</span>
-          <h2>Receita -> deduções -> margem</h2>
-          <p class="kpi-section-sub">Waterfall gerencial do resultado, com foco em perdas, tributação e rentabilidade operacional.</p>
+        <div class="analysis-board-tabs" role="tablist" aria-label="Visões da análise">
+          <button class="analysis-board-tab active" type="button" data-analysis-view="overview">Resumo</button>
+          <button class="analysis-board-tab" type="button" data-analysis-view="rankings">Rankings</button>
+          <button class="analysis-board-tab" type="button" data-analysis-view="movements">Movimentações</button>
         </div>
-        <section id="summaryGridDre" class="summary-grid summary-grid-dre" aria-label="DRE sintético"></section>
 
-        <section class="panel alerts-panel" id="alertsPanel" aria-label="Alertas automáticos"></section>
+        <div id="analysisOverviewView" class="analysis-view">
+          <div class="kpi-section-header">
+            <span class="eyebrow accent">DRE sintético</span>
+            <h2>Receita -> deduções -> margem</h2>
+            <p class="kpi-section-sub">Waterfall gerencial do resultado, com foco em perdas, tributação e rentabilidade operacional.</p>
+          </div>
+          <section id="summaryGridDre" class="summary-grid summary-grid-dre" aria-label="DRE sintético"></section>
 
-        <div class="kpi-section-header">
-          <span class="eyebrow">KPIs operacionais</span>
-          <h2>Indicadores derivados</h2>
-          <p class="kpi-section-sub">Conversão, eficiência comercial, markup, concentração, remessas e baixas sob a regra vigente.</p>
+          <section class="panel alerts-panel" id="alertsPanel" aria-label="Alertas automáticos"></section>
+
+          <div class="kpi-section-header">
+            <span class="eyebrow">KPIs operacionais</span>
+            <h2>Indicadores derivados</h2>
+            <p class="kpi-section-sub">Conversão, eficiência comercial, markup, concentração, remessas e baixas sob a regra vigente.</p>
+          </div>
+          <section id="summaryGridOps" class="summary-grid" aria-label="KPIs operacionais"></section>
+
+          <section class="panel full-chart-card monthly-performance-card">
+            <div class="section-head">
+              <div>
+                <span class="eyebrow">Receita</span>
+                <h2>Evolução mensal</h2>
+              </div>
+              <div class="section-controls">
+                <div class="chart-legend-inline" aria-hidden="true">
+                  <span class="legend-item"><span class="legend-dot revenue"></span>Receita</span>
+                  <span class="legend-item"><span class="legend-dot cost"></span>Custo</span>
+                </div>
+                <button id="exportCsvBtn" class="btn btn-ghost export-btn" type="button">Exportar CSV</button>
+              </div>
+            </div>
+            <div class="chart-wrap full-width-chart">
+              <canvas id="monthlyChart"></canvas>
+            </div>
+          </section>
+
+          <section class="dashboard-grid two-thirds">
+            <article class="panel insight-card">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Leitura CFO</span>
+                  <h2>Análise executiva automática</h2>
+                </div>
+              </div>
+              <div id="analysisList" class="analysis-list"></div>
+            </article>
+
+            <article class="panel">
+              <div class="section-head compact">
+                <div>
+                  <span class="eyebrow">Tributos</span>
+                  <h2>Carga tributária mensal</h2>
+                </div>
+              </div>
+              <div class="chart-wrap medium-chart">
+                <canvas id="taxChart"></canvas>
+              </div>
+              <div id="taxBreakdown" class="tax-breakdown"></div>
+            </article>
+          </section>
         </div>
-        <section id="summaryGridOps" class="summary-grid" aria-label="KPIs operacionais"></section>
 
-        <section class="panel full-chart-card">
-          <div class="section-head">
-            <div>
-              <span class="eyebrow">Receita</span>
-              <h2>Evolução mensal</h2>
-            </div>
-            <div class="section-controls">
-              <button id="exportCsvBtn" class="btn btn-ghost export-btn" type="button">Exportar CSV</button>
-            </div>
-          </div>
-          <div class="chart-wrap full-width-chart">
-            <canvas id="monthlyChart"></canvas>
-          </div>
-        </section>
+        <div id="analysisRankingsView" class="analysis-view hidden">
+          <section class="dashboard-grid">
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Top clientes</span>
+                  <h2>Ranking de clientes</h2>
+                </div>
+                <div class="section-controls">
+                  <label>Top
+                    <select id="topClientsLimit">
+                      <option value="4" selected>4</option>
+                      <option value="6">6</option>
+                      <option value="8">8</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                      <option value="20">20</option>
+                    </select>
+                  </label>
+                  <label>Ordenar por
+                    <select id="topClientsSort">
+                      <option value="revenue" selected>Receita</option>
+                      <option value="marginValue">Margem R$</option>
+                      <option value="marginPct">Margem %</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="clientsTable" class="data-table"></table>
+              </div>
+            </article>
 
-        <section class="dashboard-grid two-thirds">
-          <article class="panel insight-card">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Leitura CFO</span>
-                <h2>Análise executiva automática</h2>
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Top SKUs</span>
+                  <h2>Ranking de produtos</h2>
+                </div>
+                <div class="section-controls">
+                  <label>Top
+                    <select id="topProductsLimit">
+                      <option value="4" selected>4</option>
+                      <option value="6">6</option>
+                      <option value="8">8</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                      <option value="20">20</option>
+                    </select>
+                  </label>
+                  <label>Ordenar por
+                    <select id="topProductsSort">
+                      <option value="revenue" selected>Receita</option>
+                      <option value="marginValue">Margem R$</option>
+                      <option value="marginPct">Margem %</option>
+                      <option value="quantity">Volume</option>
+                    </select>
+                  </label>
+                </div>
               </div>
-            </div>
-            <div id="analysisList" class="analysis-list"></div>
-          </article>
+              <div class="table-wrap">
+                <table id="productsTable" class="data-table"></table>
+              </div>
+            </article>
+          </section>
 
-          <article class="panel">
-            <div class="section-head compact">
-              <div>
-                <span class="eyebrow">Tributos</span>
-                <h2>Carga tributária mensal</h2>
+          <section class="dashboard-grid">
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Margem positiva</span>
+                  <h2>Top SKUs com maior rentabilidade</h2>
+                </div>
+                <div class="section-controls">
+                  <label>Top
+                    <select id="topPositiveSkuLimit">
+                      <option value="4" selected>4</option>
+                      <option value="6">6</option>
+                      <option value="8">8</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                    </select>
+                  </label>
+                </div>
               </div>
-            </div>
-            <div class="chart-wrap medium-chart">
-              <canvas id="taxChart"></canvas>
-            </div>
-            <div id="taxBreakdown" class="tax-breakdown"></div>
-          </article>
-        </section>
+              <div class="table-wrap">
+                <table id="positiveSkuTable" class="data-table"></table>
+              </div>
+            </article>
 
-        <section class="dashboard-grid">
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Top clientes</span>
-                <h2>Ranking de clientes</h2>
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Margem negativa</span>
+                  <h2>SKUs destruindo valor</h2>
+                </div>
+                <div class="section-controls">
+                  <label>Top
+                    <select id="topNegativeSkuLimit">
+                      <option value="4" selected>4</option>
+                      <option value="6">6</option>
+                      <option value="8">8</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                    </select>
+                  </label>
+                </div>
               </div>
-              <div class="section-controls">
-                <label>Top
-                  <select id="topClientsLimit">
-                    <option value="10">10</option>
-                    <option value="15" selected>15</option>
-                    <option value="20">20</option>
-                    <option value="30">30</option>
-                  </select>
-                </label>
-                <label>Ordenar por
-                  <select id="topClientsSort">
-                    <option value="revenue" selected>Receita</option>
-                    <option value="marginValue">Margem R$</option>
-                    <option value="marginPct">Margem %</option>
-                  </select>
-                </label>
+              <div class="table-wrap">
+                <table id="negativeMarginTable" class="data-table"></table>
               </div>
-            </div>
-            <div class="table-wrap">
-              <table id="clientsTable" class="data-table"></table>
-            </div>
-          </article>
+            </article>
+          </section>
 
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Top SKUs</span>
-                <h2>Ranking de produtos</h2>
+          <section class="dashboard-grid">
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Clientes críticos</span>
+                  <h2>Clientes com margem negativa</h2>
+                </div>
+                <div class="section-controls">
+                  <label>Top
+                    <select id="topBadClientsLimit">
+                      <option value="4" selected>4</option>
+                      <option value="6">6</option>
+                      <option value="8">8</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                    </select>
+                  </label>
+                </div>
               </div>
-              <div class="section-controls">
-                <label>Top
-                  <select id="topProductsLimit">
-                    <option value="10">10</option>
-                    <option value="15" selected>15</option>
-                    <option value="20">20</option>
-                    <option value="30">30</option>
-                  </select>
-                </label>
-                <label>Ordenar por
-                  <select id="topProductsSort">
-                    <option value="revenue" selected>Receita</option>
-                    <option value="marginValue">Margem R$</option>
-                    <option value="marginPct">Margem %</option>
-                    <option value="quantity">Volume</option>
-                  </select>
-                </label>
+              <div class="table-wrap">
+                <table id="badClientsTable" class="data-table"></table>
               </div>
-            </div>
-            <div class="table-wrap">
-              <table id="productsTable" class="data-table"></table>
-            </div>
-          </article>
-        </section>
+            </article>
 
-        <section class="dashboard-grid">
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Margem positiva</span>
-                <h2>Top SKUs com maior rentabilidade</h2>
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Tributação</span>
+                  <h2>SKUs com imposto atípico</h2>
+                </div>
+                <div class="section-controls">
+                  <label>Top
+                    <select id="topTaxLimit">
+                      <option value="4" selected>4</option>
+                      <option value="6">6</option>
+                      <option value="8">8</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                    </select>
+                  </label>
+                </div>
               </div>
-              <div class="section-controls">
-                <label>Top
-                  <select id="topPositiveSkuLimit">
-                    <option value="10">10</option>
-                    <option value="15" selected>15</option>
-                    <option value="20">20</option>
-                  </select>
-                </label>
+              <div class="table-wrap">
+                <table id="taxOutlierTable" class="data-table"></table>
               </div>
-            </div>
-            <div class="table-wrap">
-              <table id="positiveSkuTable" class="data-table"></table>
-            </div>
-          </article>
+            </article>
+          </section>
+        </div>
 
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Margem negativa</span>
-                <h2>SKUs destruindo valor</h2>
+        <div id="analysisMovementsView" class="analysis-view hidden">
+          <section class="dashboard-grid">
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Remessas</span>
+                  <h2>Movimentações de remessa, bonificação e similares</h2>
+                </div>
               </div>
-              <div class="section-controls">
-                <label>Top
-                  <select id="topNegativeSkuLimit">
-                    <option value="10">10</option>
-                    <option value="15" selected>15</option>
-                    <option value="20">20</option>
-                  </select>
-                </label>
+              <div class="chart-wrap short-chart">
+                <canvas id="remessaChart"></canvas>
               </div>
-            </div>
-            <div class="table-wrap">
-              <table id="negativeMarginTable" class="data-table"></table>
-            </div>
-          </article>
-        </section>
+              <div class="table-wrap">
+                <table id="remessaTable" class="data-table"></table>
+              </div>
+            </article>
 
-        <section class="dashboard-grid">
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Clientes críticos</span>
-                <h2>Clientes com margem negativa</h2>
+            <article class="panel wide-table-panel">
+              <div class="section-head">
+                <div>
+                  <span class="eyebrow">Baixas de estoque</span>
+                  <h2>Perdas, deterioração e roubo por CFOP</h2>
+                </div>
               </div>
-              <div class="section-controls">
-                <label>Top
-                  <select id="topBadClientsLimit">
-                    <option value="10">10</option>
-                    <option value="15" selected>15</option>
-                    <option value="20">20</option>
-                  </select>
-                </label>
+              <div class="chart-wrap short-chart">
+                <canvas id="baixaChart"></canvas>
               </div>
-            </div>
-            <div class="table-wrap">
-              <table id="badClientsTable" class="data-table"></table>
-            </div>
-          </article>
-
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Tributação</span>
-                <h2>SKUs com imposto atípico</h2>
+              <div class="table-wrap">
+                <table id="baixaTable" class="data-table"></table>
               </div>
-              <div class="section-controls">
-                <label>Top
-                  <select id="topTaxLimit">
-                    <option value="10">10</option>
-                    <option value="15" selected>15</option>
-                    <option value="20">20</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table id="taxOutlierTable" class="data-table"></table>
-            </div>
-          </article>
-        </section>
-
-        <section class="dashboard-grid">
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Remessas</span>
-                <h2>Movimentações de remessa, bonificação e similares</h2>
-              </div>
-            </div>
-            <div class="chart-wrap short-chart">
-              <canvas id="remessaChart"></canvas>
-            </div>
-            <div class="table-wrap">
-              <table id="remessaTable" class="data-table"></table>
-            </div>
-          </article>
-
-          <article class="panel wide-table-panel">
-            <div class="section-head">
-              <div>
-                <span class="eyebrow">Baixas de estoque</span>
-                <h2>Perdas, deterioração e roubo por CFOP</h2>
-              </div>
-            </div>
-            <div class="chart-wrap short-chart">
-              <canvas id="baixaChart"></canvas>
-            </div>
-            <div class="table-wrap">
-              <table id="baixaTable" class="data-table"></table>
-            </div>
-          </article>
-        </section>
+            </article>
+          </section>
+        </div>
       </section>
     </section>
   </main>

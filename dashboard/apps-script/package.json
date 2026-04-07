@@ -1,0 +1,17 @@
+{
+  "name": "amora-dashboard-apps-script",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Backend Apps Script do dashboard AMORA",
+  "scripts": {
+    "login": "clasp login",
+    "create": "clasp create --type standalone --title \"AMORA Dashboard API\"",
+    "push": "clasp push",
+    "open": "clasp open",
+    "deploy:webapp": "clasp deploy --description \"AMORA Dashboard API - Web App\"",
+    "logs": "clasp logs --watch"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}

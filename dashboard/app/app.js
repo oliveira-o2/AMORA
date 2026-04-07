@@ -15,10 +15,12 @@
 ═══════════════════════════════════════════════════════════════════ */
 
 const DEFAULT_CLIENT_NAME = "AMORA DISTRIBUIDORA LTDA";
-const DEFAULT_API_BASE_URL = "";
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:8765/api/google";
+const DEFAULT_CONSOLIDATOR_API_BASE_URL = "http://127.0.0.1:8765";
 const LOCAL_STORAGE_KEYS = {
   clientName: "amoraDashboardClientName",
   apiBaseUrl: "amoraDashboardApiBaseUrl",
+  consolidatorApiBaseUrl: "amoraDashboardConsolidatorApiBaseUrl",
   globalConfig: "amoraDashboardGlobalConfig",
   localVersions: "amoraDashboardLocalVersions",
 };
@@ -53,9 +55,16 @@ const PAGE_META = {
     title: "Snapshots congelados e reutilização de versões",
   },
   analysis: {
-    eyebrow: "Leitura executiva",
-    title: "Indicadores, comparativos e drill-down gerencial",
+    eyebrow: "",
+    title: "DASHBOARD GERENCIAL",
   },
+};
+
+const PAGE_SUBTITLE = {
+  base: "Fluxo auditável para carga, regras, snapshots versionados e análise gerencial.",
+  config: "Fluxo auditável para carga, regras, snapshots versionados e análise gerencial.",
+  versions: "Fluxo auditável para carga, regras, snapshots versionados e análise gerencial.",
+  analysis: "",
 };
 
 const state = {
@@ -76,10 +85,12 @@ const state = {
   compareDirty:    false,
   clientName:      DEFAULT_CLIENT_NAME,
   activePage:      "base",
+  activeAnalysisView: "overview",
   cfopRegistry:    new Map(),
   config:          createDefaultConfig(),
   globalConfig:    createEmptyGlobalConfig(),
   apiBaseUrl:      DEFAULT_API_BASE_URL,
+  consolidatorApiBaseUrl: DEFAULT_CONSOLIDATOR_API_BASE_URL,
   versions:        [],
   currentVersionMeta: null,
   workingVersionParentId: null,
@@ -89,6 +100,9 @@ const state = {
 /* ─── FORMATTERS ─────────────────────────────────────────────────── */
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
   style:"currency", currency:"BRL", maximumFractionDigits:0,
+});
+const compactCurrencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style:"currency", currency:"BRL", notation:"compact", maximumFractionDigits:1,
 });
 const numberFormatter = new Intl.NumberFormat("pt-BR", { maximumFractionDigits:0 });
 const decimalFormatter = new Intl.NumberFormat("pt-BR", {
@@ -108,6 +122,66 @@ const byId = (id) => document.getElementById(id);
 
 function cloneJson(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function getCssToken(name, fallback = "") {
+  if (typeof window === "undefined" || !window.getComputedStyle) return fallback;
+  const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function colorWithAlpha(color, alpha) {
+  const fallback = color || `rgba(255,255,255,${alpha})`;
+  if (!color) return fallback;
+  if (color.startsWith("#")) {
+    let hex = color.slice(1);
+    if (hex.length === 3) hex = hex.split("").map(ch => ch + ch).join("");
+    if (hex.length !== 6) return fallback;
+    const int = Number.parseInt(hex, 16);
+    const r = (int >> 16) & 255;
+    const g = (int >> 8) & 255;
+    const b = int & 255;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  const rgbMatch = color.match(/^rgba?\(([^)]+)\)$/i);
+  if (!rgbMatch) return fallback;
+  const parts = rgbMatch[1].split(",").map(part => part.trim());
+  if (parts.length < 3) return fallback;
+  return `rgba(${parts[0]},${parts[1]},${parts[2]},${alpha})`;
+}
+
+function getChartPalette() {
+  const text = getCssToken("--text", "#f2f2f2");
+  const muted = getCssToken("--muted", "#888888");
+  const border = getCssToken("--border", "rgba(255,255,255,0.1)");
+  const bg = getCssToken("--bg", "#0a0a0a");
+  const blue = getCssToken("--blue", "#4d9cf5");
+  const green = getCssToken("--green", "#00e676");
+  const amber = getCssToken("--amber", "#ffab00");
+  const red = getCssToken("--red", "#ff3d3d");
+
+  return {
+    text,
+    muted,
+    border,
+    bg,
+    blue,
+    green,
+    amber,
+    red,
+    revenueFill: colorWithAlpha(blue, 0.24),
+    revenueBorder: blue,
+    costFill: colorWithAlpha(green, 0.84),
+    costText: "#03110a",
+    tooltipBg: colorWithAlpha(bg, 0.96),
+    tooltipBorder: colorWithAlpha(border, 1),
+    grid: colorWithAlpha(border, 0.85),
+    revenueGhost: colorWithAlpha(blue, 0.18),
+    blueStrong: colorWithAlpha(blue, 0.82),
+    amberStrong: colorWithAlpha(amber, 0.78),
+    greenStrong: colorWithAlpha(green, 0.78),
+    redStrong: colorWithAlpha(red, 0.8),
+  };
 }
 
 /* ─── CFOP REGISTRY ──────────────────────────────────────────────── */
@@ -148,6 +222,7 @@ function escapeHtml(value) {
 }
 
 function formatCurrency(value)  { return currencyFormatter.format(Number(value || 0)); }
+function formatCurrencyCompact(value) { return compactCurrencyFormatter.format(Number(value || 0)); }
 function formatNumber(value)    { return numberFormatter.format(Number(value || 0)); }
 function formatDecimal(value)   { return decimalFormatter.format(Number(value || 0)); }
 
@@ -1098,15 +1173,145 @@ function destroyChart(chartId) {
 
 function initChartTheme() {
   if (!window.Chart) return;
-  Chart.defaults.color              = "#5d6b70";
-  Chart.defaults.borderColor        = "rgba(20,32,37,0.08)";
-  Chart.defaults.font.family        = '"Manrope",system-ui,sans-serif';
+  const palette = getChartPalette();
+  Chart.defaults.color              = palette.muted;
+  Chart.defaults.borderColor        = palette.grid;
+  Chart.defaults.font.family        = '"DM Mono","IBM Plex Mono",monospace';
   Chart.defaults.font.size          = 12;
   Chart.defaults.plugins.tooltip.cornerRadius = 6;
+  Chart.defaults.plugins.tooltip.backgroundColor = palette.tooltipBg;
+  Chart.defaults.plugins.tooltip.titleColor = palette.text;
+  Chart.defaults.plugins.tooltip.bodyColor = palette.text;
+  Chart.defaults.plugins.tooltip.borderColor = palette.tooltipBorder;
+  Chart.defaults.plugins.tooltip.borderWidth = 1;
+  Chart.defaults.plugins.legend.labels.color = palette.text;
 }
 
 function renderMonthlyChart(metrics) {
   destroyChart("monthlyChart");
+  const palette = getChartPalette();
+  const monthlyOverlayPluginV2 = {
+    id: "monthlyOverlayPluginV2",
+    afterDatasetsDraw(chartInstance) {
+      const meta = chartInstance.getDatasetMeta(0);
+      const { ctx, chartArea } = chartInstance;
+      ctx.save();
+      meta.data.forEach((bar, index) => {
+        const point = metrics.monthly[index];
+        const revenue = Number(point?.revenue || 0);
+        const cost = Math.max(Number(point?.cpv || 0), 0);
+        if (!(revenue > 0)) return;
+
+        const props = bar.getProps(["x", "y", "base", "width"], true);
+        const top = Math.min(props.y, props.base);
+        const bottom = Math.max(props.y, props.base);
+        const height = Math.max(bottom - top, 0);
+        const width = Math.max(props.width - 10, 8);
+        const left = props.x - width / 2;
+        const ratio = Math.min(cost / revenue, 1);
+        const costHeight = Math.max(height * ratio, 0);
+        const costTop = bottom - costHeight;
+
+        if (costHeight > 0) {
+          ctx.fillStyle = palette.costFill;
+          if (typeof ctx.roundRect === "function") {
+            ctx.beginPath();
+            ctx.roundRect(left, costTop, width, costHeight, ratio >= 0.999 ? 12 : [0, 0, 12, 12]);
+            ctx.fill();
+          } else {
+            ctx.fillRect(left, costTop, width, costHeight);
+          }
+        }
+
+        const totalLabelY = Math.max(top - 12, chartArea.top + 12);
+        ctx.fillStyle = palette.text;
+        ctx.font = '600 11px "DM Mono","IBM Plex Mono",monospace';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(formatCurrencyCompact(revenue), props.x, totalLabelY);
+
+        if (cost > 0 && costHeight >= 34) {
+          const costPct = (cost / revenue) * 100;
+          const centerY = costTop + (costHeight / 2);
+          ctx.fillStyle = palette.costText;
+          ctx.font = '700 10px "DM Mono","IBM Plex Mono",monospace';
+          ctx.fillText(formatCurrencyCompact(cost), props.x, centerY - 7);
+          ctx.font = '600 9px "DM Mono","IBM Plex Mono",monospace';
+          ctx.fillText(formatPercent(costPct), props.x, centerY + 7);
+        } else if (cost > 0 && costHeight >= 18) {
+          const costPct = (cost / revenue) * 100;
+          ctx.fillStyle = palette.costText;
+          ctx.font = '700 9px "DM Mono","IBM Plex Mono",monospace';
+          ctx.fillText(formatPercent(costPct), props.x, costTop + (costHeight / 2));
+        }
+      });
+      ctx.restore();
+    },
+  };
+  const monthlyChartV2 = new Chart(byId("monthlyChart"), {
+    type:"bar",
+    data:{
+      labels:metrics.monthly.map(m => formatMonth(m.month)),
+      datasets:[
+        {
+          label:"Receita Líquida",
+          data:metrics.monthly.map(m => m.revenue),
+          backgroundColor:palette.revenueFill,
+          borderColor:palette.revenueBorder,
+          borderWidth:1.2,
+          borderRadius:12,
+          categoryPercentage:0.72,
+          barPercentage:0.96,
+          maxBarThickness:56,
+        },
+      ],
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      onClick(_e, els) {
+        if (!els.length) return;
+        const month = metrics.monthly[els[0].index].month;
+        const rows = state.filteredSales.filter(r => r.month === month && isRevenueRowIncluded(r));
+        openModal(`Lançamentos — ${formatMonth(month)}`, `${formatNumber(rows.length)} linhas`, rows, "sales");
+      },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          callbacks:{
+            label(ctx) {
+              return `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`;
+            },
+            afterLabel(ctx) {
+              const point = metrics.monthly[ctx.dataIndex];
+              const revenue = Number(point?.revenue || 0);
+              const cost = Number(point?.cpv || 0);
+              const margin = Number(point?.marginValue || 0);
+              if (!(revenue > 0)) return [];
+              return [
+                `Custo: ${formatCurrency(cost)} (${formatPercent((cost / revenue) * 100)})`,
+                `Margem: ${formatCurrency(margin)} (${formatPercent((margin / revenue) * 100)})`,
+              ];
+            },
+          },
+        },
+      },
+      scales:{
+        x:{
+          grid:{ display:false },
+          ticks:{ color:palette.muted },
+        },
+        y:{
+          beginAtZero:true,
+          grid:{ color:palette.grid },
+          ticks:{ color:palette.muted, callback:v => formatCurrency(v) },
+        },
+      },
+    },
+    plugins:[monthlyOverlayPluginV2],
+  });
+  state.charts.set("monthlyChart", monthlyChartV2);
+  return;
   const hasCpv = metrics.monthly.some(m => m.cpv > 0);
   const datasets = [
     {
@@ -1164,6 +1369,7 @@ function renderMonthlyChart(metrics) {
 
 function renderTaxChart(metrics) {
   destroyChart("taxChart");
+  const palette = getChartPalette();
   const chart = new Chart(byId("taxChart"), {
     type:"bar",
     data:{
@@ -1171,31 +1377,31 @@ function renderTaxChart(metrics) {
       datasets:[
         {
           label:"Receita", data:metrics.monthly.map(m => m.revenue),
-          backgroundColor:"rgba(91,156,246,0.15)", borderColor:"rgba(91,156,246,0.5)",
+          backgroundColor:palette.revenueGhost, borderColor:colorWithAlpha(palette.blue, 0.52),
           borderWidth:1, borderRadius:6, grouped:false,
           categoryPercentage:0.80, barPercentage:0.98, maxBarThickness:58,
         },
         {
           label:"ICMS", data:metrics.monthly.map(m => state.config.taxes.icms ? m.icms : 0),
-          backgroundColor:"rgba(243,156,18,0.75)", borderRadius:6, grouped:false,
+          backgroundColor:palette.amberStrong, borderRadius:6, grouped:false,
           categoryPercentage:0.60, barPercentage:0.96, maxBarThickness:44,
           hidden:!state.config.taxes.icms,
         },
         {
           label:"PIS",  data:metrics.monthly.map(m => state.config.taxes.pis ? m.pis : 0),
-          backgroundColor:"rgba(46,204,113,0.75)", borderRadius:6, grouped:false,
+          backgroundColor:palette.greenStrong, borderRadius:6, grouped:false,
           categoryPercentage:0.46, barPercentage:0.96, maxBarThickness:32,
           hidden:!state.config.taxes.pis,
         },
         {
           label:"COFINS", data:metrics.monthly.map(m => state.config.taxes.cofins ? m.cofins : 0),
-          backgroundColor:"rgba(91,156,246,0.80)", borderRadius:6, grouped:false,
+          backgroundColor:palette.blueStrong, borderRadius:6, grouped:false,
           categoryPercentage:0.32, barPercentage:0.96, maxBarThickness:22,
           hidden:!state.config.taxes.cofins,
         },
         {
           label:"IPI", data:metrics.monthly.map(m => state.config.taxes.ipi ? m.ipi : 0),
-          backgroundColor:"rgba(231,76,60,0.80)", borderRadius:6, grouped:false,
+          backgroundColor:palette.redStrong, borderRadius:6, grouped:false,
           categoryPercentage:0.20, barPercentage:0.96, maxBarThickness:14,
           hidden:!state.config.taxes.ipi,
         },
@@ -1216,8 +1422,8 @@ function renderTaxChart(metrics) {
         tooltip:{ callbacks:{ label:ctx => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}` } },
       },
       scales:{
-        x:{ grid:{display:false} },
-        y:{ ticks:{ callback:v => formatCurrency(v) } },
+        x:{ grid:{display:false}, ticks:{ color:palette.muted } },
+        y:{ grid:{ color:palette.grid }, ticks:{ color:palette.muted, callback:v => formatCurrency(v) } },
       },
     },
   });
@@ -1227,11 +1433,12 @@ function renderTaxChart(metrics) {
 
 function renderTaxBreakdown(metrics) {
   const totalTaxes = metrics.totalTaxes || 0;
+  const palette = getChartPalette();
   const items = [
-    { label:"ICMS", field:"icms", color:"#f39c12" },
-    { label:"PIS",  field:"pis",  color:"#2ecc71" },
-    { label:"COFINS", field:"cofins", color:"#5b9cf6" },
-    { label:"IPI",  field:"ipi",  color:"#e74c3c" },
+    { label:"ICMS", field:"icms", color:palette.amber },
+    { label:"PIS",  field:"pis",  color:palette.green },
+    { label:"COFINS", field:"cofins", color:palette.blue },
+    { label:"IPI",  field:"ipi",  color:palette.red },
   ];
   byId("taxBreakdown").innerHTML = items.map(({ label, field, color }) => {
     const value  = metrics.taxBreakdown[field] || 0;
@@ -1255,8 +1462,9 @@ function renderTaxBreakdown(metrics) {
 
 function renderStockTypeChart(chartId, monthlyRows, type) {
   destroyChart(chartId);
+  const palette = getChartPalette();
   const label = type === "remessa" ? "Remessas e similares" : "Baixas de estoque";
-  const color = type === "remessa" ? "#5b9cf6" : "#f39c12";
+  const color = type === "remessa" ? palette.blue : palette.amber;
   const chart = new Chart(byId(chartId), {
     type:"bar",
     data:{
@@ -1278,8 +1486,8 @@ function renderStockTypeChart(chartId, monthlyRows, type) {
         tooltip:{ callbacks:{ label:ctx => `${label}: ${formatCurrency(ctx.parsed.y)}` } },
       },
       scales:{
-        x:{ grid:{display:false} },
-        y:{ ticks:{ callback:v => formatCurrency(v) } },
+        x:{ grid:{display:false}, ticks:{ color:palette.muted } },
+        y:{ grid:{ color:palette.grid }, ticks:{ color:palette.muted, callback:v => formatCurrency(v) } },
       },
     },
   });
@@ -1318,7 +1526,7 @@ function renderTable(tableId, headers, rows, clickHandler = null) {
   }
 }
 
-function getTopLimit(id, fallback = 15) {
+function getTopLimit(id, fallback = 4) {
   const v = Number(byId(id)?.value);
   return Number.isFinite(v) && v > 0 ? v : fallback;
 }
@@ -1326,7 +1534,7 @@ function getTopLimit(id, fallback = 15) {
 /* ─── TABLE RENDERERS ────────────────────────────────────────────── */
 function renderClientsTable(metrics) {
   const rows = sortByMetric(metrics.clients, byId("topClientsSort").value || "revenue")
-    .slice(0, getTopLimit("topClientsLimit", 15));
+    .slice(0, getTopLimit("topClientsLimit", 4));
   renderTable("clientsTable",
     [{ label:"#" },{ label:"Cliente" },{ label:"UF" },
      { label:"Receita",numeric:true },{ label:"NFs",numeric:true },
@@ -1353,7 +1561,7 @@ function renderClientsTable(metrics) {
 
 function renderProductsTable(metrics) {
   const rows = sortByMetric(metrics.products, byId("topProductsSort").value || "revenue")
-    .slice(0, getTopLimit("topProductsLimit", 15));
+    .slice(0, getTopLimit("topProductsLimit", 4));
   renderTable("productsTable",
     [{ label:"#" },{ label:"SKU / Produto" },
      { label:"Receita",numeric:true },{ label:"Qtd",numeric:true },
@@ -1379,7 +1587,7 @@ function renderProductsTable(metrics) {
 }
 
 function renderPositiveSkuTable(metrics) {
-  const rows = metrics.positiveSkuMargin.slice(0, getTopLimit("topPositiveSkuLimit", 15));
+  const rows = metrics.positiveSkuMargin.slice(0, getTopLimit("topPositiveSkuLimit", 4));
   renderTable("positiveSkuTable",
     [{ label:"#" },{ label:"SKU / Produto" },
      { label:"Receita",numeric:true },{ label:"Margem %",numeric:true },{ label:"Margem R$",numeric:true }],
@@ -1399,7 +1607,7 @@ function renderPositiveSkuTable(metrics) {
 }
 
 function renderNegativeMarginTable(metrics) {
-  const rows = metrics.negativeSkuMargin.slice(0, getTopLimit("topNegativeSkuLimit", 15));
+  const rows = metrics.negativeSkuMargin.slice(0, getTopLimit("topNegativeSkuLimit", 4));
   renderTable("negativeMarginTable",
     [{ label:"#" },{ label:"SKU / Produto" },
      { label:"Receita",numeric:true },{ label:"Margem %",numeric:true },{ label:"Prejuízo R$",numeric:true }],
@@ -1419,7 +1627,7 @@ function renderNegativeMarginTable(metrics) {
 }
 
 function renderBadClientsTable(metrics) {
-  const rows = metrics.badClients.slice(0, getTopLimit("topBadClientsLimit", 15));
+  const rows = metrics.badClients.slice(0, getTopLimit("topBadClientsLimit", 4));
   renderTable("badClientsTable",
     [{ label:"#" },{ label:"Cliente" },
      { label:"Receita",numeric:true },{ label:"Devoluções",numeric:true },
@@ -1441,7 +1649,7 @@ function renderBadClientsTable(metrics) {
 }
 
 function renderTaxOutlierTable(metrics) {
-  const rows = metrics.taxOutliers.slice(0, getTopLimit("topTaxLimit", 15));
+  const rows = metrics.taxOutliers.slice(0, getTopLimit("topTaxLimit", 4));
   renderTable("taxOutlierTable",
     [{ label:"SKU / Produto" },{ label:"Receita",numeric:true },
      { label:"Imposto %",numeric:true },{ label:"Desvio σ",numeric:true }],
@@ -1460,7 +1668,7 @@ function renderTaxOutlierTable(metrics) {
 }
 
 function renderStockTypeTable(tableId, rows, type) {
-  const sliced = rows.slice(0, 15);
+  const sliced = rows.slice(0, 6);
   if (type === "baixa_estoque" && rows.length && rows[0]?.cfop !== undefined) {
     renderTable(tableId,
       [{ label:"#" },{ label:"CFOP" },{ label:"Descrição" },
@@ -2157,17 +2365,17 @@ function finalizeSourceLoad({
   versionMeta = null,
   workingVersionParentId = "",
 }) {
-  if (!salesRows.length && !stockRows.length)
+  const unclassifiedStubs = salesRows._unclassified || [];
+  if (!salesRows.length && !stockRows.length && !unclassifiedStubs.length)
     throw new Error("Nenhuma linha válida encontrada para o dashboard.");
 
-  const coverage = getCoverageDates(salesRows, stockRows);
+  const coverage = getCoverageDates([...salesRows, ...unclassifiedStubs], stockRows);
   state.source = {
     fileName, format, sheetName, totalRows, ignoredRows, unclassifiedRows,
     coverageFrom:coverage.from, coverageTo:coverage.to, salesRows, stockRows,
   };
 
   // Base rows for CFOP registry: include unclassified stubs so their CFOPs appear in the configurator
-  const unclassifiedStubs = salesRows._unclassified || [];
   state.baseRows = [
     ...salesRows.map(r => toBaseRow(r,"sales")),
     ...stockRows.map(r => toBaseRow(r,"stock")),
@@ -2214,20 +2422,137 @@ function readWorkbook(file) {
   });
 }
 
+function buildJsonRow(rawRow) {
+  const type = classifyType(rawRow.type ?? rawRow.type_label ?? rawRow.tipo_cfop, rawRow.cfop);
+  const date   = parseDate(rawRow.date ?? rawRow.data ?? rawRow.data_nf ?? rawRow.emissao ?? rawRow.data_emissao);
+  const note   = rawRow.note   ?? rawRow.nota;
+  const client = rawRow.client ?? rawRow.cliente;
+  const item   = rawRow.item   ?? rawRow.nome ?? rawRow.produto;
+  if (!date || !note || !client || !item) return null;
+
+  if (type === "venda" || type === "devolucao") {
+    const revenue = ensureSignedValue(rawRow.revenue ?? rawRow.valor, type);
+    if (revenue == null) return null;
+    const quantity = ensureSignedValue(rawRow.quantity ?? rawRow.quant ?? rawRow.quantidade, type) ?? 0;
+    const icms     = ensureSignedValue(rawRow.icms, type) ?? 0;
+    const pis      = ensureSignedValue(rawRow.pis, type) ?? 0;
+    const cofins   = ensureSignedValue(rawRow.cofins, type) ?? 0;
+    const ipi      = ensureSignedValue(rawRow.ipi, type) ?? 0;
+    const cost     = ensureSignedValue(rawRow.cost ?? rawRow.custo ?? rawRow.custo_total_y ?? rawRow.custo_total, type);
+    const marginValue = rawRow.margin_value != null
+      ? ensureSignedValue(rawRow.margin_value, type)
+      : cost == null ? null : revenue - cost;
+    const marginPct = rawRow.margin_pct != null
+      ? parseNumber(rawRow.margin_pct, { allowNull:true })
+      : marginValue == null || !revenue ? null : (marginValue / revenue) * 100;
+
+    return {
+      dataset:"sales",
+      row:{
+        date, month:monthFromDate(date),
+        note:String(note), client:String(client), uf:String(rawRow.uf ?? ""),
+        item:String(item), quantity, revenue, icms, pis, cofins, ipi,
+        taxesTotal:icms + pis + cofins + ipi,
+        cost, marginValue, marginPct,
+        cfop:String(rawRow.cfop ?? ""), type, typeLabel:friendlyType(type),
+      },
+    };
+  }
+
+  if (isStockMovementType(type)) {
+    const value = parseNumber(rawRow.value ?? rawRow.valor, { allowNull:true });
+    if (value == null) return null;
+    return {
+      dataset:"stock",
+      row:{
+        date, month:monthFromDate(date),
+        note:String(note), client:String(client), uf:String(rawRow.uf ?? ""),
+        item:String(item), quantity:Math.abs(parseNumber(rawRow.quantity ?? rawRow.quant ?? rawRow.quantidade)),
+        value:Math.abs(value),
+        cfop:String(rawRow.cfop ?? ""), type, typeLabel:friendlyType(type),
+      },
+    };
+  }
+
+  const baseValue = parseNumber(rawRow.revenue ?? rawRow.valor ?? rawRow.value, { allowNull:true });
+  if (baseValue == null) return null;
+  return {
+    dataset:"unclassified",
+    row:{
+      date, month:monthFromDate(date),
+      note:String(note), client:String(client), uf:String(rawRow.uf ?? ""),
+      item:String(item), quantity:Math.abs(parseNumber(rawRow.quantity ?? rawRow.quant ?? rawRow.quantidade)),
+      revenue:Math.abs(baseValue),
+      cfop:String(rawRow.cfop ?? ""), type:"ignorar", typeLabel:"Não classificado",
+    },
+  };
+}
+
+function normalizeDashboardPayload(payload) {
+  const salesSource = Array.isArray(payload?.sales) ? payload.sales : [];
+  const stockSource = Array.isArray(payload?.stock) ? payload.stock : [];
+  const sourceRows = [...salesSource, ...stockSource];
+  const salesRows = [];
+  const stockRows = [];
+  const unclassifiedPayloadRows = [];
+  let ignoredRows = 0;
+
+  sourceRows.forEach((rawRow) => {
+    const built = buildJsonRow(rawRow);
+    if (!built) {
+      ignoredRows++;
+      return;
+    }
+    if (built.dataset === "sales") salesRows.push(built.row);
+    else if (built.dataset === "stock") stockRows.push(built.row);
+    else if (built.dataset === "unclassified") unclassifiedPayloadRows.push(built.row);
+  });
+
+  if (unclassifiedPayloadRows.length) salesRows._unclassified = unclassifiedPayloadRows;
+
+  return {
+    totalRows: sourceRows.length,
+    ignoredRows,
+    unclassifiedRows: unclassifiedPayloadRows.length,
+    salesRows,
+    stockRows,
+  };
+}
+
+function loadDashboardPayload(payload, {
+  fileName = "",
+  format = "",
+  sheetName = "",
+  configOverride = null,
+  cfopOverrides = null,
+  versionMeta = null,
+  workingVersionParentId = "",
+} = {}) {
+  if (!payload || typeof payload !== "object") throw new Error("Payload inválido.");
+  const normalized = normalizeDashboardPayload(payload);
+  finalizeSourceLoad({
+    fileName: fileName || payload.meta?.sourceFileName || "payload.json",
+    format: format || payload.meta?.sourceFormat || "JSON",
+    sheetName: sheetName || payload.meta?.sheetName || (payload.meta?.version ? `Payload ${payload.meta.version}` : "Payload JSON"),
+    totalRows: normalized.totalRows,
+    ignoredRows: normalized.ignoredRows,
+    unclassifiedRows: normalized.unclassifiedRows,
+    salesRows: normalized.salesRows,
+    stockRows: normalized.stockRows,
+    configOverride,
+    cfopOverrides,
+    versionMeta,
+    workingVersionParentId,
+  });
+}
+
 async function handleJsonFile(file) {
   const text    = await file.text();
   const payload = JSON.parse(text);
   if (!payload || typeof payload !== "object") throw new Error("JSON inválido.");
-  const salesSource = Array.isArray(payload.sales) ? payload.sales : [];
-  const stockSource = Array.isArray(payload.stock) ? payload.stock : [];
-  const salesRows   = salesSource.map(normalizeJsonSalesRow).filter(Boolean);
-  const stockRows   = stockSource.map(normalizeJsonStockRow).filter(Boolean);
-  finalizeSourceLoad({
-    fileName:file.name, format:"JSON",
-    sheetName:payload.meta?.version ? `Payload ${payload.meta.version}` : "Payload JSON",
-    totalRows:salesSource.length + stockSource.length,
-    ignoredRows:salesSource.length + stockSource.length - salesRows.length - stockRows.length,
-    salesRows, stockRows,
+  loadDashboardPayload(payload, {
+    fileName: file.name,
+    format: "JSON",
   });
 }
 
@@ -2290,7 +2615,7 @@ async function handleInputFile(file) {
 function applyClientName(name) {
   const sanitized = String(name||"").trim() || DEFAULT_CLIENT_NAME;
   state.clientName = sanitized;
-  byId("clientNameInput").value     = sanitized;
+  byId("baseClientNameInput").value = sanitized;
   byId("clientNameBadge").textContent = sanitized;
   try { window.localStorage.setItem(LOCAL_STORAGE_KEYS.clientName, sanitized); } catch (_) {}
 }
@@ -2306,8 +2631,12 @@ function apiIsConfigured() {
   return Boolean(String(state.apiBaseUrl || "").trim());
 }
 
+function sanitizeBaseUrl(url) {
+  return String(url || "").trim().replace(/\/+$/, "");
+}
+
 function applyApiBaseUrl(url, { persist = true } = {}) {
-  const normalized = String(url || "").trim();
+  const normalized = sanitizeBaseUrl(url);
   state.apiBaseUrl = normalized || DEFAULT_API_BASE_URL;
   byId("apiBaseUrlInput").value = state.apiBaseUrl;
   if (persist) {
@@ -2328,8 +2657,226 @@ function updateApiConfigStatus() {
   const node = byId("apiConfigStatus");
   if (!node) return;
   node.textContent = apiIsConfigured()
-    ? "Apps Script configurado. Os snapshots e padrões globais podem ser lidos e gravados no Google Sheets."
+    ? "API Google configurada. Os snapshots e padrões globais podem ser lidos e gravados no workspace versionado."
     : "Sem URL configurada. O dashboard continua funcionando localmente, mas snapshots no Google ficam desabilitados.";
+}
+
+function setApiWorkspaceStatus(message, tone = "neutral", { html = false } = {}) {
+  const node = byId("apiWorkspaceStatus");
+  if (!node) return;
+  const toneMap = {
+    neutral: "callout callout-neutral",
+    success: "callout callout-good",
+    warn: "callout callout-warn",
+    error: "callout callout-warn",
+  };
+  node.className = toneMap[tone] || toneMap.neutral;
+  if (html) node.innerHTML = message;
+  else node.textContent = message;
+}
+
+function consolidatorApiIsConfigured() {
+  return Boolean(String(state.consolidatorApiBaseUrl || "").trim());
+}
+
+function setConsolidatorStatus(message, tone = "neutral", { html = false } = {}) {
+  const node = byId("consolidatorStatus");
+  if (!node) return;
+  const toneMap = {
+    neutral: "callout callout-neutral",
+    success: "callout callout-good",
+    warn: "callout callout-warn",
+    error: "callout callout-warn",
+  };
+  node.className = toneMap[tone] || toneMap.neutral;
+  if (html) node.innerHTML = message;
+  else node.textContent = message;
+}
+
+function applyConsolidatorApiBaseUrl(url, { persist = true } = {}) {
+  const normalized = sanitizeBaseUrl(url);
+  state.consolidatorApiBaseUrl = normalized || DEFAULT_CONSOLIDATOR_API_BASE_URL;
+  const input = byId("consolidatorApiBaseUrlInput");
+  if (input) input.value = state.consolidatorApiBaseUrl;
+  if (persist) {
+    try {
+      window.localStorage.setItem(LOCAL_STORAGE_KEYS.consolidatorApiBaseUrl, state.consolidatorApiBaseUrl);
+    } catch (_) {}
+  }
+}
+
+function hydrateConsolidatorApiBaseUrl() {
+  try {
+    applyConsolidatorApiBaseUrl(
+      window.localStorage.getItem(LOCAL_STORAGE_KEYS.consolidatorApiBaseUrl) || DEFAULT_CONSOLIDATOR_API_BASE_URL,
+      { persist: false }
+    );
+  } catch (_) {
+    applyConsolidatorApiBaseUrl(DEFAULT_CONSOLIDATOR_API_BASE_URL, { persist: false });
+  }
+}
+
+function describeFiles(files = []) {
+  if (!files.length) return "Nenhum arquivo selecionado.";
+  if (files.length === 1) return files[0].name;
+  return `${files.length} arquivos selecionados`;
+}
+
+function updateConsolidatorFileSummary(inputId, summaryId) {
+  const input = byId(inputId);
+  const summary = byId(summaryId);
+  if (!input || !summary) return;
+  const files = [...(input.files || [])];
+  summary.classList.toggle("empty", !files.length);
+  if (!files.length) {
+    summary.textContent = "Nenhum arquivo selecionado.";
+    return;
+  }
+  summary.innerHTML = files.map((file) => escapeHtml(file.name)).join("<br>");
+}
+
+function clearConsolidatorFiles() {
+  [
+    ["consolidatorNfeInput", "consolidatorNfeSummary"],
+    ["consolidatorVendasItemInput", "consolidatorVendasItemSummary"],
+    ["consolidatorListaVendasInput", "consolidatorListaVendasSummary"],
+  ].forEach(([inputId, summaryId]) => {
+    const input = byId(inputId);
+    if (input) input.value = "";
+    updateConsolidatorFileSummary(inputId, summaryId);
+  });
+  byId("consolidatorOutputNameInput").value = "";
+  setConsolidatorStatus("Seleção limpa. Escolha os arquivos do consolidator e execute o processamento.", "neutral");
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      resolve(result.includes(",") ? result.split(",")[1] : result);
+    };
+    reader.onerror = () => reject(reader.error || new Error(`Falha ao ler ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function serializeFilePayload(file) {
+  if (!file) return null;
+  return {
+    name: file.name,
+    contentBase64: await readFileAsBase64(file),
+  };
+}
+
+async function callConsolidatorApi(path, { method = "GET", payload = null } = {}) {
+  if (!consolidatorApiIsConfigured()) {
+    throw new Error("URL do consolidator local não configurada.");
+  }
+
+  let response = null;
+  try {
+    response = await fetch(`${state.consolidatorApiBaseUrl}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+  } catch (_) {
+    throw new Error("Não foi possível conectar ao servidor local do consolidator.");
+  }
+
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; }
+  catch (_) { data = { ok: false, error: text || "Resposta inválida do consolidator." }; }
+
+  if (!response.ok || data?.ok === false) {
+    throw new Error(data?.error || `Falha no consolidator (${response.status}).`);
+  }
+  return data;
+}
+
+async function checkConsolidatorHealth({ silent = false } = {}) {
+  try {
+    const response = await callConsolidatorApi("/api/health");
+    if (!silent) {
+      setConsolidatorStatus(
+        `Servidor local ativo em ${response.host}:${response.port}. O consolidator está pronto para processar os arquivos.`,
+        "success"
+      );
+    }
+    return true;
+  } catch (error) {
+    if (!silent) {
+      setConsolidatorStatus(
+        `${error.message} Inicie o arquivo dashboard/python/start_consolidador_server.bat e tente novamente.`,
+        "error"
+      );
+    }
+    return false;
+  }
+}
+
+async function runConsolidator() {
+  const nfeFiles = [...(byId("consolidatorNfeInput").files || [])];
+  const vendasItemFile = byId("consolidatorVendasItemInput").files?.[0] || null;
+  const listaVendasFile = byId("consolidatorListaVendasInput").files?.[0] || null;
+  const outputName = byId("consolidatorOutputNameInput").value.trim();
+
+  if (!nfeFiles.length) {
+    setConsolidatorStatus("Selecione pelo menos um relatório de NFe antes de executar o consolidator.", "error");
+    return;
+  }
+
+  showLoader();
+  setConsolidatorStatus("Preparando arquivos e enviando para o consolidator local...", "neutral");
+
+  try {
+    const isHealthy = await checkConsolidatorHealth({ silent: true });
+    if (!isHealthy) {
+      setConsolidatorStatus(
+        "Servidor local indisponível. Inicie o arquivo dashboard/python/start_consolidador_server.bat e tente novamente.",
+        "error"
+      );
+      return;
+    }
+
+    const payload = {
+      outputName: outputName || undefined,
+      nfeFiles: await Promise.all(nfeFiles.map(serializeFilePayload)),
+      vendasItemFile: await serializeFilePayload(vendasItemFile),
+      listaVendasFile: await serializeFilePayload(listaVendasFile),
+    };
+
+    setConsolidatorStatus("Processando relatórios no Python local. Isso pode levar alguns instantes...", "neutral");
+    resetWorkingVersionContext();
+    const response = await callConsolidatorApi("/api/consolidar", {
+      method: "POST",
+      payload,
+    });
+
+    loadDashboardPayload(response.payload, {
+      fileName: response.payload?.meta?.sourceFileName || response.outputExcel || "consolidado_local.xlsx",
+      format: response.payload?.meta?.sourceFormat || "Consolidador Python",
+      sheetName: response.payload?.meta?.sheetName || "Consolidado gerado",
+    });
+
+    const messageCount = Array.isArray(response.messages) ? response.messages.length : 0;
+    const outputExcel = response.outputExcel ? escapeHtml(response.outputExcel) : "sem caminho retornado";
+    setConsolidatorStatus(
+      `<strong>Processamento concluído.</strong><br>${formatNumber(nfeFiles.length)} arquivo(s) de NFe processados.<br>Saída Excel: ${outputExcel}${messageCount ? `<br>${formatNumber(messageCount)} mensagem(ns) retornada(s) pelo consolidator.` : ""}`,
+      "success",
+      { html: true }
+    );
+    setStatus("Base consolidada carregada pelo Python local.", "success");
+    setActivePage("config");
+  } catch (error) {
+    console.error(error);
+    setConsolidatorStatus(`Erro no consolidator: ${error.message}`, "error");
+    setStatus(`Erro no consolidator: ${error.message}`, "error");
+  } finally {
+    hideLoader();
+  }
 }
 
 function readLocalGlobalConfig() {
@@ -2368,7 +2915,7 @@ function writeLocalVersions(versions) {
 }
 
 async function callApi(action, { method = "GET", payload = null } = {}) {
-  if (!apiIsConfigured()) throw new Error("URL do Apps Script não configurada.");
+  if (!apiIsConfigured()) throw new Error("URL da API Google não configurada.");
   const base = state.apiBaseUrl;
   const url = method === "GET"
     ? `${base}${base.includes("?") ? "&" : "?"}action=${encodeURIComponent(action)}${payload ? `&payload=${encodeURIComponent(JSON.stringify(payload))}` : ""}`
@@ -2382,12 +2929,90 @@ async function callApi(action, { method = "GET", payload = null } = {}) {
 
   const text = await response.text();
   let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch (_) { data = { ok: false, error: text || "Resposta inválida do Apps Script." }; }
+  try { data = text ? JSON.parse(text) : null; } catch (_) { data = { ok: false, error: text || "Resposta inválida da API Google." }; }
 
   if (!response.ok || data?.ok === false) {
     throw new Error(data?.error || `Falha na integração (${response.status}).`);
   }
   return data;
+}
+
+function formatSheetStatusLine(sheet) {
+  const stateLabel = sheet.headerIsReady ? "estrutura ok" : "cabecalho divergente";
+  return `${sheet.name}: ${formatNumber(sheet.rowCount || 0)} linha(s) · ${stateLabel}`;
+}
+
+async function testApiConnection({ silent = false } = {}) {
+  if (!apiIsConfigured()) {
+    if (!silent) {
+      setApiWorkspaceStatus("Informe a URL da API Google antes de testar o salvamento.", "warn");
+      setStatus("URL da API Google não configurada.", "error");
+    }
+    return null;
+  }
+
+  try {
+    const pingResponse = await callApi("ping");
+    const pingData = pingResponse?.data || pingResponse;
+    const workspaceResponse = await callApi("workspace_status");
+    const workspace = workspaceResponse?.data || workspaceResponse;
+    const sheets = Array.isArray(workspace?.sheets) ? workspace.sheets : [];
+    const topLines = sheets.slice(0, 3).map(formatSheetStatusLine).join("<br>");
+    const spreadsheetUrl = workspace?.spreadsheetUrl || pingData?.spreadsheetUrl || "";
+
+    if (!silent) {
+      setApiWorkspaceStatus(
+        `<strong>API conectada.</strong><br>Workspace: ${escapeHtml(workspace?.spreadsheetName || pingData?.spreadsheetName || "Sem nome")}<br>${spreadsheetUrl ? `<a href="${escapeHtml(spreadsheetUrl)}" target="_blank" rel="noreferrer">Abrir workspace Google</a><br>` : ""}${topLines || "Estrutura pronta para uso."}`,
+        "success",
+        { html: true }
+      );
+      setStatus("API Google validada com sucesso.", "success");
+    }
+
+    return {
+      ping: pingData,
+      workspace,
+    };
+  } catch (error) {
+    if (!silent) {
+      setApiWorkspaceStatus(
+        `Falha ao conectar na API Google.<br>Detalhe: ${escapeHtml(error.message)}`,
+        "error",
+        { html: true }
+      );
+      setStatus(`Falha na API Google: ${error.message}`, "error");
+    }
+    return null;
+  }
+}
+
+async function setupApiWorkspace() {
+  if (!apiIsConfigured()) {
+    setApiWorkspaceStatus("Informe a URL da API Google antes de inicializar a estrutura.", "warn");
+    setStatus("URL da API Google não configurada.", "error");
+    return null;
+  }
+
+  try {
+    const response = await callApi("setup_workspace", { method: "POST", payload: {} });
+    const data = response?.data || response;
+    const sheets = Array.isArray(data?.sheets) ? data.sheets : [];
+    setApiWorkspaceStatus(
+      `<strong>Estrutura inicializada.</strong><br>${escapeHtml(data?.message || "Workspace Google validado.")}<br>${sheets.slice(0, 4).map(formatSheetStatusLine).join("<br>")}`,
+      "success",
+      { html: true }
+    );
+    setStatus("Estrutura da API Google inicializada.", "success");
+    return data;
+  } catch (error) {
+    setApiWorkspaceStatus(
+      `Não foi possível inicializar a estrutura da API.<br>Detalhe: ${escapeHtml(error.message)}`,
+      "error",
+      { html: true }
+    );
+    setStatus(`Erro ao inicializar API: ${error.message}`, "error");
+    return null;
+  }
 }
 
 function buildGlobalConfigPayload() {
@@ -2564,7 +3189,7 @@ function renderVersionsTable() {
     ? `${formatNumber(versions.length)} versão(ões) disponíveis${apiIsConfigured() ? " no Google" : " em armazenamento local"}.`
     : apiIsConfigured()
       ? "Nenhum snapshot encontrado no índice do Google Sheets."
-      : "Nenhum snapshot local encontrado. Configure o Apps Script para usar histórico compartilhado.";
+      : "Nenhum snapshot local encontrado. Configure a API Google para usar histórico compartilhado.";
 }
 
 function resetWorkingVersionContext() {
@@ -2594,7 +3219,7 @@ async function loadGlobalConfig({ silent = false, applyToSession = false } = {})
       applyCfopOverrides(state.globalConfig.cfopOverrides, { resetMissing: true, rebuild: true, rerender: !!state.source });
     }
 
-    if (!silent) setStatus(apiIsConfigured() ? "Padrão global carregado do Google." : "Padrão global carregado do armazenamento local.", "success");
+    if (!silent) setStatus(apiIsConfigured() ? "Padrão global carregado do workspace Google." : "Padrão global carregado do armazenamento local.", "success");
     updateWorkingVersionSummary();
     return state.globalConfig;
   } catch (error) {
@@ -2614,9 +3239,9 @@ async function saveGlobalConfig() {
   try {
     if (apiIsConfigured()) {
       await callApi("save_global_config", { method: "POST", payload });
-      setStatus("Padrão global salvo no Google Sheets.", "success");
+      setStatus("Padrão global salvo no workspace Google.", "success");
     } else {
-      setStatus("Padrão global salvo localmente. Configure o Apps Script para compartilhar com o time.", "info");
+      setStatus("Padrão global salvo localmente. Configure a API Google para compartilhar com o time.", "info");
     }
   } catch (error) {
     setStatus(`Erro ao salvar padrão global: ${error.message}`, "error");
@@ -2677,7 +3302,7 @@ async function saveSnapshot() {
       localVersions.unshift(localVersion);
       writeLocalVersions(localVersions);
       version = localVersion;
-      setStatus("Snapshot salvo localmente. Configure o Apps Script para compartilhar o histórico.", "info");
+      setStatus("Snapshot salvo localmente. Configure a API Google para compartilhar o histórico.", "info");
     }
 
     if (version) {
@@ -2703,7 +3328,7 @@ async function refreshVersions({ silent = false } = {}) {
     state.versions = (versions || []).map(normalizeVersionRecord).filter(Boolean);
     state.versionsLoadedAt = new Date().toISOString();
     renderVersionsTable();
-    if (!silent) setStatus(apiIsConfigured() ? "Histórico atualizado do Google Sheets." : "Histórico local atualizado.", "success");
+    if (!silent) setStatus(apiIsConfigured() ? "Histórico atualizado do workspace Google." : "Histórico local atualizado.", "success");
   } catch (error) {
     state.versions = [];
     renderVersionsTable();
@@ -2744,21 +3369,11 @@ async function duplicateVersion(versionId) {
 }
 
 function hydrateSnapshotPayload(payload, { duplicate = false } = {}) {
-  const salesSource = Array.isArray(payload?.sales) ? payload.sales : [];
-  const stockSource = Array.isArray(payload?.stock) ? payload.stock : [];
-  const salesRows = salesSource.map(normalizeJsonSalesRow).filter(Boolean);
-  const stockRows = stockSource.map(normalizeJsonStockRow).filter(Boolean);
   const meta = normalizeVersionRecord(payload?.meta || {});
-
-  finalizeSourceLoad({
+  loadDashboardPayload(payload, {
     fileName: meta?.sourceFileName || "snapshot.json",
     format: meta?.sourceFormat || "Snapshot",
     sheetName: payload?.meta?.sheetName || "Snapshot",
-    totalRows: salesSource.length + stockSource.length,
-    ignoredRows: 0,
-    unclassifiedRows: 0,
-    salesRows,
-    stockRows,
     configOverride: payload?.config || createDefaultConfig(),
     cfopOverrides: payload?.cfopOverrides || [],
     versionMeta: duplicate ? null : meta,
@@ -2769,6 +3384,7 @@ function hydrateSnapshotPayload(payload, { duplicate = false } = {}) {
 /* ─── PAGE NAV ───────────────────────────────────────────────────── */
 function setActivePage(page) {
   state.activePage = page;
+  document.body.dataset.activePage = page;
   byId("pageBase").classList.toggle("hidden", page !== "base");
   byId("pageConfig").classList.toggle("hidden", page !== "config");
   byId("pageVersions").classList.toggle("hidden", page !== "versions");
@@ -2779,6 +3395,25 @@ function setActivePage(page) {
   const meta = PAGE_META[page] || PAGE_META.base;
   byId("pageEyebrow").textContent = meta.eyebrow;
   byId("pageTitle").textContent = meta.title;
+  byId("pageSubtitle").textContent = PAGE_SUBTITLE[page] ?? PAGE_SUBTITLE.base;
+  byId("pageEyebrow").classList.toggle("hidden", !meta.eyebrow);
+  byId("pageSubtitle").classList.toggle("hidden", page === "analysis" || !byId("pageSubtitle").textContent.trim());
+}
+
+function setAnalysisView(view) {
+  state.activeAnalysisView = view;
+  byId("pageAnalysis").dataset.analysisView = view;
+  const viewMap = {
+    overview: "analysisOverviewView",
+    rankings: "analysisRankingsView",
+    movements: "analysisMovementsView",
+  };
+  Object.entries(viewMap).forEach(([key, id]) => {
+    byId(id)?.classList.toggle("hidden", key !== view);
+  });
+  document.querySelectorAll(".analysis-board-tab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.analysisView === view);
+  });
 }
 
 /* ─── SYNC CONFIG ────────────────────────────────────────────────── */
@@ -2809,15 +3444,49 @@ function bindUploads() {
     });
 }
 
+function bindConsolidator() {
+  [
+    ["consolidatorNfeTrigger", "consolidatorNfeInput", "consolidatorNfeSummary"],
+    ["consolidatorVendasItemTrigger", "consolidatorVendasItemInput", "consolidatorVendasItemSummary"],
+    ["consolidatorListaVendasTrigger", "consolidatorListaVendasInput", "consolidatorListaVendasSummary"],
+  ].forEach(([triggerId, inputId, summaryId]) => {
+    byId(triggerId).addEventListener("click", () => byId(inputId).click());
+    byId(inputId).addEventListener("change", () => updateConsolidatorFileSummary(inputId, summaryId));
+  });
+
+  byId("saveConsolidatorApiBaseUrlBtn").addEventListener("click", () => {
+    applyConsolidatorApiBaseUrl(byId("consolidatorApiBaseUrlInput").value);
+    setConsolidatorStatus(`URL do consolidator local salva: ${state.consolidatorApiBaseUrl}`, "neutral");
+  });
+
+  byId("consolidatorApiBaseUrlInput").addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    byId("saveConsolidatorApiBaseUrlBtn").click();
+  });
+
+  byId("consolidatorHealthBtn").addEventListener("click", async () => {
+    await checkConsolidatorHealth();
+  });
+
+  byId("runConsolidatorBtn").addEventListener("click", async () => {
+    await runConsolidator();
+  });
+
+  byId("clearConsolidatorFilesBtn").addEventListener("click", () => {
+    clearConsolidatorFiles();
+  });
+}
+
 function bindWorkspaceActions() {
   byId("saveApiBaseUrlBtn").addEventListener("click", async () => {
     applyApiBaseUrl(byId("apiBaseUrlInput").value);
     if (apiIsConfigured()) {
       await loadGlobalConfig({ silent: true });
       await refreshVersions({ silent: true });
-      setStatus("Integração Apps Script configurada.", "success");
+      setStatus("Integração Google configurada.", "success");
     } else {
-      setStatus("URL do Apps Script removida. O dashboard segue em modo local.", "info");
+      setStatus("URL da API Google removida. O dashboard segue em modo local.", "info");
     }
   });
 
@@ -2825,6 +3494,77 @@ function bindWorkspaceActions() {
     if (event.key !== "Enter") return;
     event.preventDefault();
     byId("saveApiBaseUrlBtn").click();
+  });
+
+  byId("loadGlobalConfigBtn").addEventListener("click", async () => {
+    if (state.source) markWorkingCopyFromLoadedVersion();
+    await loadGlobalConfig({ applyToSession: !!state.source });
+  });
+
+  byId("saveGlobalConfigBtn").addEventListener("click", async () => {
+    await saveGlobalConfig();
+  });
+
+  byId("resetGlobalConfigBtn").addEventListener("click", async () => {
+    markWorkingCopyFromLoadedVersion();
+    await loadGlobalConfig({ applyToSession: true });
+  });
+
+  byId("saveSnapshotBtn").addEventListener("click", async () => {
+    await saveSnapshot();
+  });
+
+  byId("refreshVersionsBtn").addEventListener("click", async () => {
+    await refreshVersions();
+  });
+
+  byId("goToConfigBtn").addEventListener("click", () => setActivePage("config"));
+  byId("goToAnalysisBtn").addEventListener("click", () => {
+    if (!state.source) {
+      setStatus("Carregue uma base antes de abrir as análises.", "error");
+      return;
+    }
+    setActivePage("analysis");
+  });
+  byId("openBaseFromVersionsBtn").addEventListener("click", () => setActivePage("base"));
+}
+
+function bindWorkspaceActionsV2() {
+  byId("saveApiBaseUrlBtn").addEventListener("click", async () => {
+    applyApiBaseUrl(byId("apiBaseUrlInput").value);
+    if (apiIsConfigured()) {
+      const connection = await testApiConnection({ silent: true });
+      if (connection) {
+        await loadGlobalConfig({ silent: true });
+        await refreshVersions({ silent: true });
+        const workspace = connection.workspace || {};
+        setApiWorkspaceStatus(
+          `<strong>API configurada.</strong><br>Workspace: ${escapeHtml(workspace.spreadsheetName || "Operacional")}<br>${workspace.spreadsheetUrl ? `<a href="${escapeHtml(workspace.spreadsheetUrl)}" target="_blank" rel="noreferrer">Abrir workspace Google</a>` : "URL do workspace não retornada."}`,
+          "success",
+          { html: true }
+        );
+        setStatus("Integração Google configurada.", "success");
+      } else {
+        setStatus("URL salva, mas a API não respondeu corretamente.", "error");
+      }
+    } else {
+      setApiWorkspaceStatus("Sem API remota configurada. O dashboard seguirá usando armazenamento local no navegador.", "neutral");
+      setStatus("URL da API Google removida. O dashboard segue em modo local.", "info");
+    }
+  });
+
+  byId("apiBaseUrlInput").addEventListener("keydown", async (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    byId("saveApiBaseUrlBtn").click();
+  });
+
+  byId("testApiBaseUrlBtn").addEventListener("click", async () => {
+    await testApiConnection();
+  });
+
+  byId("setupApiWorkspaceBtn").addEventListener("click", async () => {
+    await setupApiWorkspace();
   });
 
   byId("loadGlobalConfigBtn").addEventListener("click", async () => {
@@ -2962,24 +3702,46 @@ function bindExport() {
 async function init() {
   hydrateClientName();
   hydrateApiBaseUrl();
+  hydrateConsolidatorApiBaseUrl();
   syncConfigFromInputs();
   initChartTheme();
   setActivePage("base");
   bindUploads();
-  bindWorkspaceActions();
+  bindConsolidator();
+  bindWorkspaceActionsV2();
   bindFilters();
-  byId("clientNameInput").addEventListener("input", (e) => applyClientName(e.target.value));
+  byId("baseClientNameInput").addEventListener("input", (e) => applyClientName(e.target.value));
   bindConfig();
   bindPageNavigation();
+  bindAnalysisTabs();
   bindCfopConfig();
   bindRankingControls();
   bindModal();
   bindExport();
+  setAnalysisView("overview");
   buildAssumptions();
   renderCfopRegistryMeta();
   renderCfopConfigTable();
   renderVersionsTable();
   updateWorkingVersionSummary();
+  updateConsolidatorFileSummary("consolidatorNfeInput", "consolidatorNfeSummary");
+  updateConsolidatorFileSummary("consolidatorVendasItemInput", "consolidatorVendasItemSummary");
+  updateConsolidatorFileSummary("consolidatorListaVendasInput", "consolidatorListaVendasSummary");
+  if (apiIsConfigured()) {
+    const connection = await testApiConnection({ silent: true });
+    if (connection?.workspace) {
+      const workspace = connection.workspace;
+      setApiWorkspaceStatus(
+        `<strong>API pronta.</strong><br>Workspace: ${escapeHtml(workspace.spreadsheetName || "Operacional")}<br>${workspace.spreadsheetUrl ? `<a href="${escapeHtml(workspace.spreadsheetUrl)}" target="_blank" rel="noreferrer">Abrir workspace Google</a>` : "URL do workspace não retornada."}`,
+        "success",
+        { html: true }
+      );
+    } else {
+      setApiWorkspaceStatus("A URL salva não respondeu como API Google válida. Revise o servidor local em dashboard/python.", "warn");
+    }
+  } else {
+    setApiWorkspaceStatus("A API de salvamento fica em dashboard/python. Mantenha o servidor local ativo e teste a conexão nesta tela.", "neutral");
+  }
   await loadGlobalConfig({ silent: true });
   await refreshVersions({ silent: true });
 }
@@ -2987,6 +3749,12 @@ async function init() {
 function bindPageNavigation() {
   document.querySelectorAll(".rail-nav-btn").forEach(btn => {
     btn.addEventListener("click", () => setActivePage(btn.dataset.page));
+  });
+}
+
+function bindAnalysisTabs() {
+  document.querySelectorAll(".analysis-board-tab").forEach(btn => {
+    btn.addEventListener("click", () => setAnalysisView(btn.dataset.analysisView || "overview"));
   });
 }
 

@@ -4,3 +4,8 @@ Thumbs.db
 
 dashboard/apps-script/.clasp.json
 dashboard/apps-script/.clasprc.json
+
+__pycache__/
+amora_consolidador.log
+dashboard/output/
+dashboard/apps-script/node_modules/

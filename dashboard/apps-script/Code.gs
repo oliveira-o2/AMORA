@@ -87,7 +87,10 @@ function doGet(e) {
 
     switch (action) {
       case 'ping':
-        result = { ok: true, status: 'ready' };
+        result = { ok: true, data: getApiInfo_() };
+        break;
+      case 'workspace_status':
+        result = { ok: true, data: getWorkspaceStatus_() };
         break;
       case 'list_versions':
         result = { ok: true, versions: listVersions_() };
@@ -115,6 +118,9 @@ function doPost(e) {
     let result;
 
     switch (action) {
+      case 'setup_workspace':
+        result = { ok: true, data: setupWorkspace_() };
+        break;
       case 'save_snapshot':
         result = { ok: true, version: saveSnapshot_(body) };
         break;
@@ -166,6 +172,13 @@ function getSpreadsheet_() {
   }
 }
 
+function getAvailableActions_() {
+  return {
+    get: ['ping', 'workspace_status', 'list_versions', 'get_version', 'get_global_config'],
+    post: ['setup_workspace', 'save_snapshot', 'save_global_config'],
+  };
+}
+
 function ensureWorkspaceSheets_() {
   const ss = getSpreadsheet_();
   ensureSheet_(ss, SHEET_NAMES.versions, SHEET_HEADERS.versions);
@@ -185,6 +198,66 @@ function ensureSheet_(ss, sheetName, headers) {
     sheet.setFrozenRows(1);
   }
   return sheet;
+}
+
+function countDataRows_(sheet) {
+  return Math.max(sheet.getLastRow() - 1, 0);
+}
+
+function getApiInfo_() {
+  const ss = ensureWorkspaceSheets_();
+  return {
+    status: 'ready',
+    spreadsheetId: ss.getId(),
+    spreadsheetName: ss.getName(),
+    spreadsheetUrl: ss.getUrl(),
+    availableActions: getAvailableActions_(),
+    sheets: buildSheetsStatus_(ss),
+  };
+}
+
+function buildSheetsStatus_(ss) {
+  return Object.keys(SHEET_NAMES).map(function(key) {
+    const sheetName = SHEET_NAMES[key];
+    const sheet = ss.getSheetByName(sheetName);
+    const expectedHeaders = SHEET_HEADERS[sheetName] || [];
+    const currentHeaders = sheet
+      ? sheet.getRange(1, 1, 1, expectedHeaders.length).getDisplayValues()[0]
+      : [];
+    const headerIsReady = expectedHeaders.join('|') === currentHeaders.join('|');
+    return {
+      key: key,
+      name: sheetName,
+      exists: !!sheet,
+      headerIsReady: headerIsReady,
+      rowCount: sheet ? countDataRows_(sheet) : 0,
+    };
+  });
+}
+
+function getWorkspaceStatus_() {
+  const ss = ensureWorkspaceSheets_();
+  const sheets = buildSheetsStatus_(ss);
+  return {
+    status: sheets.every(function(sheet) { return sheet.exists && sheet.headerIsReady; }) ? 'ready' : 'incomplete',
+    spreadsheetId: ss.getId(),
+    spreadsheetName: ss.getName(),
+    spreadsheetUrl: ss.getUrl(),
+    sheetCount: sheets.length,
+    sheets: sheets,
+  };
+}
+
+function setupWorkspace_() {
+  const ss = ensureWorkspaceSheets_();
+  return {
+    status: 'ready',
+    message: 'Estrutura operacional criada e validada.',
+    spreadsheetId: ss.getId(),
+    spreadsheetName: ss.getName(),
+    spreadsheetUrl: ss.getUrl(),
+    sheets: buildSheetsStatus_(ss),
+  };
 }
 
 function rowsToObjects_(sheet) {
